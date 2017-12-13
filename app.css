@@ -8,9 +8,21 @@
   font-family: "Verdana"
 }
 
+.legend {
+  border-radius: 10px;
+  border: 2px solid black;
+  background-color: #f3ca5e;
+  font-size: 10px;
+  font-family: "Verdana"
+}
 
 .boldText {
   font-weight: bold;
+  font-size: 16;
+  font-family: "Verdana"
+}
+
+.normalText {
   font-size: 16;
   font-family: "Verdana"
 }

@@ -38,45 +38,46 @@ var gApp;
     itemId: 'rallyApp',
     MIN_COLUMN_WIDTH:   15,        //Looks silly on less than this
     MAX_COLUMN_WIDTH:   50,
+    MIN_CARD_WIDTH: 200,
     LOAD_STORE_MAX_RECORDS: 100, //Can blow up the Rally.data.wsapi.filter.Or
     WARN_STORE_MAX_RECORDS: 300, //Can be slow if you fetch too many
     NODE_CIRCLE_SIZE: 8,                //Pixel radius of dots
     
-    _gridMargin: {top: 80, right: 400, bottom: 10, left: 80},
+    _gridMargin: {top: 80, right: 400, bottom: 400, left: 80},
 
     STORE_FETCH_FIELD_LIST: [
-        'Name',
-        'FormattedID',
-        'Parent',
-        'DragAndDropRank',
-        'Children',
-        'ObjectID',
-        'Project',
-        'DisplayColor',
-        'Owner',
         'Blocked',
         'BlockedReason',
-        'Ready',
-        'Tags',
-        'Workspace',
-        'RevisionHistory',
+        'Children',
         'CreationDate',
-        'PercentDoneByStoryCount',
-        'PercentDoneByStoryPlanEstimate',
-        'PredecessorsAndSuccessors',                
-        'State',
-        'PreliminaryEstimate',
-        'PreliminaryEstimateValue',
         'Description',
-        'Notes',
-        'Predecessors',
-        'Successors',
-        'OrderIndex',   //Used to get the State field order index
-        'PortfolioItemType',                
-        'Ordinal',
-        'Release',
+        'DisplayColor',
+        'DragAndDropRank',
+        'FormattedID',
         'Iteration',
         'Milestones',
+        'Name',
+        'Notes',
+        'ObjectID',
+        'OrderIndex',   //Used to get the State field order index
+        'Ordinal',
+        'Owner',
+        'Parent',
+        'PercentDoneByStoryCount',
+        'PercentDoneByStoryPlanEstimate',
+        'PortfolioItemType',                
+        'Predecessors',
+        'PredecessorsAndSuccessors',                
+        'PreliminaryEstimate',
+        'PreliminaryEstimateValue',
+        'Project',
+        'Ready',
+        'Release',
+        'RevisionHistory',
+        'State',
+        'Successors',
+        'Tags',
+        'Workspace',
         //Customer specific after here. Delete as appropriate
         'c_ProjectIDOBN',
         'c_QRWP',
@@ -134,8 +135,8 @@ var gApp;
         svg.attr('width', gApp._gridSize + gApp._gridMargin.left + gApp._gridMargin.right);
         svg.attr('height',gApp._gridSize + gApp._gridMargin.top + gApp._gridMargin.bottom);
 
-        var xAxis = svg.append('g');
-        var yAxis = svg.append('g');
+        var xAxis = svg.append('g').attr('id', 'titleText');
+        var yAxis = svg.append('g').attr('id', 'titleText');
         
         yAxis.attr("transform", "rotate(-90)")
             .append("text")
@@ -162,7 +163,7 @@ var gApp;
         //Let these slide out to globals
         x = d3.scaleBand().range([0, gApp._gridSize]);
         z = d3.scaleLinear().domain([0, 4]).clamp(true);
-        c = d3.scaleOrdinal(d3.schemeCategory10).domain(d3.range(10));
+        c = d3.scaleOrdinal(d3.schemeCategory20).domain(d3.range(10));
 
         //Start with ordered by FormattedID
         x.domain(gApp.down('#sortOrder').value());        
@@ -190,14 +191,38 @@ var gApp;
             column.append("line")
                 .attr("x1", -gApp._gridSize);
         
-                column.append("text")
+            column.append("text")
                 .attr("id", "titleText")
                 .attr("x", 6)
                 .attr("y", x.bandwidth() / 2)
                 .attr("dy", ".32em")
                 .attr("text-anchor", "start")
+                .on("mouseover", gApp._textMouseOver)
+                .on("mouseout", gApp._textMouseOut)
+                .on("click", function(node, index, array) { gApp._nodeClick(node,index,array);})                
                 .text(function(d, i) { return gApp._nodes[i].Name; });
-                
+            
+            //Add colour legend to end of grid
+            var colourLegend = gApp._svg.append('g')
+                .attr("transform", function(d, i) { 
+                    return "translate(0," + gApp._gridSize + ")";
+                })
+                .selectAll('.legend')
+                .data(gApp._grouping[gApp.down('#grouping').rawValue]())
+                .enter().append('g')
+                .attr("class", 'legend')
+                .attr("transform", function(d,i) { return "translate(0," + (x.bandwidth() * (i+1)) + ")";})
+
+            d3.selectAll('.legend').append("circle")
+                .attr('r', x.bandwidth()/4)
+                .attr("fill", function(d,i) { return c(i);});
+
+            d3.selectAll('.legend').append("text")
+                .attr("x", x.bandwidth()/4 + 20)
+                .attr("text-anchor", "start")
+                .text( function(d,i,a) {
+                    var record =   gApp._grouping[gApp.down('#grouping').rawValue]()[i]
+                    return record ? record._refObjectName: "Unset";});
         }    
         else { 
             gApp._showNoDependencies();
@@ -207,6 +232,10 @@ var gApp;
     },
     _nodeTree: null,
     
+    _destroyAxes: function() {
+        var svg = d3.selectAll('#titleText').remove();
+    },
+
     _destroyGrid: function() {
         var svg = d3.select("#grid").remove();
     },
@@ -222,15 +251,11 @@ var gApp;
                     .attr("class", 'boldText');
     },
 
-    _currentGroups: [],
-
     _getGroupFor: function(record) {
-        var index = _.indexOf(gApp._currentGroups, record);
-        if ( index < 0 ) {
-            gApp._currentGroups.push(record);
-            index = _.indexOf(gApp._currentGroups, record);
-        }
-        return index;
+        var selectedgrouping = gApp.down('#grouping').rawValue;
+        var grouping = gApp._grouping[selectedgrouping];
+        var index = _.indexOf(grouping(), record.get(selectedgrouping));
+        return index < 0 ? 19 : index;  //If unknown, use the last number in the schemeCategory20 colouring
     },
 
     //Continuation point after selectors ready/changed
@@ -250,7 +275,7 @@ var gApp;
         gApp._nodes.forEach(function(node, i) {
             node.index = i;
             node.count = 0;
-            node.group = gApp._getGroupFor(node.record.data.Parent);
+            node.group = gApp._getGroupFor(node.record);
             gApp._matrix[i] = d3.range(n).map(function(j) { return {x: j, y: i, z: 0}; });
         });
 
@@ -284,6 +309,15 @@ var gApp;
         });
     },
 
+    _grouping: {
+        PreliminaryEstimate: function() {
+            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('PreliminaryEstimate') }))
+        },
+        Parent: function() {
+            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Parent') }))
+        }
+    },
+
     _sortOrders: {
         FormattedID:   function() {
             return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.ascending(gApp._nodes[a].record.get('ObjectID'), gApp._nodes[b].record.get('ObjectID')); });
@@ -294,7 +328,7 @@ var gApp;
         },
 
         PreliminaryEstimateValue:   function() {
-                    return d3.range(gApp._nodes.length).sort(function(b, a) { return d3.ascending(gApp._nodes[a].record.get('PreliminaryEstimateValue'), gApp._nodes[b].record.get('PreliminaryEstimateValue')); });
+                    return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.descending(gApp._nodes[a].record.get('PreliminaryEstimateValue'), gApp._nodes[b].record.get('PreliminaryEstimateValue')); });
                 },
         // Parent:   
         //     function() {
@@ -359,8 +393,9 @@ var gApp;
                     return "normalText";
                 }
             })
-            .on("mouseover", textmouseOver)
-            .on("mouseout", textMouseOut)
+            .on("mouseover", gApp._textMouseOver)
+            .on("mouseout", gApp._textMouseOut)
+            .on("click", function(node, index, array) { gApp._nodeClick(node,index,array);})            
             .text(function(d, i) {  
                 return gApp._nodes[i].Name; 
             });
@@ -374,17 +409,6 @@ var gApp;
             .text(function(d, i) { 
                 return gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue); 
             });
-    
-
-    
-        function textmouseOver(p) {
-            debugger;
-            return;
-        }
-
-        function textMouseOut(p) {
-            return;
-        }
     
         function row(row) {
         var cell = d3.select(this).selectAll(".cell")
@@ -414,7 +438,372 @@ var gApp;
         }
     },
     
+    _nodeClick: function (row,index,array) {
+        var node = gApp._nodes[index];
+        if (!(node.record.data.ObjectID)) return; //Only exists on real items
+        //Get ordinal (or something ) to indicate we are the lowest level, then use "UserStories" instead of "Children"
+        if (event.shiftKey) { 
+            gApp._nodePopup(node,index,array); 
+        }  else {
+            gApp._dataPanel(node,index,array);
+        }
+    },
+
+    _nodePopup: function(node, index, array) {
+        var popover = Ext.create('Rally.ui.popover.DependenciesPopover',
+            {
+                record: node.record,
+                target: node.card.el
+            }
+        );
+    },
+
+    _dataPanel: function(node, index, array) {        
+        var childField = node.record.hasField('Children')? 'Children' : 'UserStories';
+        var model = node.record.hasField('Children')? node.record.data.Children._type : 'UserStory';
+
+        Ext.create('Rally.ui.dialog.Dialog', {
+            autoShow: true,
+            draggable: true,
+            closable: true,
+            width: 1200,
+            height: 800,
+            style: {
+                border: "thick solid #000000"
+            },
+            overflowY: 'scroll',
+            overflowX: 'none',
+            record: node.record,
+            disableScroll: false,
+            model: model,
+            childField: childField,
+            title: 'Information for ' + node.record.get('FormattedID') + ': ' + node.record.get('Name'),
+            layout: 'hbox',
+            items: [
+                {
+                    xtype: 'container',
+                    itemId: 'leftCol',
+                    width: 500,
+                },
+                {
+                    xtype: 'container',
+                    itemId: 'rightCol',
+                    width: 700  //Leave 20 for scroll bar
+                }
+            ],
+            listeners: {
+                afterrender: function() {
+                    this.down('#leftCol').add(
+                        {
+                                xtype: 'rallycard',
+                                record: this.record,
+                                fields: gApp.CARD_DISPLAY_FIELD_LIST,
+                                showAge: true,
+                                resizable: true
+                        }
+                    );
+
+                    if ( this.record.get('c_ProgressUpdate')){
+                        this.down('#leftCol').insert(1,
+                            {
+                                xtype: 'component',
+                                width: '100%',
+                                autoScroll: true,
+                                html: this.record.get('c_ProgressUpdate')
+                            }
+                        );
+                        this.down('#leftCol').insert(1,
+                            {
+                                xtype: 'text',
+                                text: 'Progress Update: ',
+                                style: {
+                                    fontSize: '13px',
+                                    textTransform: 'uppercase',
+                                    fontFamily: 'ProximaNova,Helvetica,Arial',
+                                    fontWeight: 'bold'
+                                },
+                                margin: '0 0 10 0'
+                            }
+                        );
+                    }
+                    //This is specific to customer. Features are used as RAIDs as well.
+                    if ((this.record.self.ordinal === 1) && this.record.hasField('c_RAIDType')){
+                        var me = this;
+                        var rai = this.down('#leftCol').add(
+                            {
+                                xtype: 'rallypopoverchilditemslistview',
+                                target: array[index],
+                                record: this.record,
+                                childField: this.childField,
+                                addNewConfig: null,
+                                gridConfig: {
+                                    title: '<b>Risks and Issues:</b>',
+                                    enableEditing: false,
+                                    enableRanking: false,
+                                    enableBulkEdit: false,
+                                    showRowActionsColumn: false,
+                                    storeConfig: this.RAIDStoreConfig(),
+                                    columnCfgs : [
+                                        'FormattedID',
+                                        'Name',
+                                        {
+                                            text: 'RAID Type',
+                                            dataIndex: 'c_RAIDType',
+                                            minWidth: 80
+                                        },
+                                        {
+                                            text: 'RAG Status',
+                                            dataIndex: 'Release',  //Just so that a sorter gets called on column ordering
+                                            width: 60,
+                                            renderer: function (value, metaData, record, rowIdx, colIdx, store) {
+                                                var setColour = (record.get('c_RAIDType') === 'Risk') ?
+                                                        me.RISKColour : me.AIDColour;
+                                                
+                                                    return '<div ' + 
+                                                        'class="' + setColour(
+                                                                        record.get('c_RAIDSeverityCriticality'),
+                                                                        record.get('c_RISKProbabilityLevel'),
+                                                                        record.get('c_RAIDRequestStatus')   
+                                                                    ) + 
+                                                        '"' +
+                                                        '>&nbsp</div>';
+                                            },
+                                            listeners: {
+                                                mouseover: function(gridView,cell,rowIdx,cellIdx,event,record) { 
+                                                    Ext.create('Rally.ui.tooltip.ToolTip' , {
+                                                            target: cell,
+                                                            html:   
+                                                            '<p>' + '   Severity: ' + record.get('c_RAIDSeverityCriticality') + '</p>' +
+                                                            '<p>' + 'Probability: ' + record.get('c_RISKProbabilityLevel') + '</p>' +
+                                                            '<p>' + '     Status: ' + record.get('c_RAIDRequestStatus') + '</p>' 
+                                                        });
+                                                    
+                                                    return true;    //Continue processing for popover
+                                                }
+                                            }
+                                        },
+                                        'ScheduleState'
+                                    ]
+                                },
+                                model: this.model
+                            }
+                        );
+                        rai.down('#header').destroy();
+                   }
+                    var children = this.down('#rightCol').add(
+                        {
+                            xtype: 'rallypopoverchilditemslistview',
+                            target: array[index],
+                            record: this.record,
+                            width: '95%',
+                            childField: this.childField,
+                            addNewConfig: null,
+                            gridConfig: {
+                                title: '<b>Children:</b>',
+                                enableEditing: false,
+                                enableRanking: false,
+                                enableBulkEdit: false,
+                                showRowActionsColumn: false,
+                                storeConfig: this.nonRAIDStoreConfig(),
+                                columnCfgs : [
+                                    'FormattedID',
+                                    'Name',
+                                    {
+                                        text: '% By Count',
+                                        dataIndex: 'PercentDoneByStoryCount'
+                                    },
+                                    {
+                                        text: '% By Est',
+                                        dataIndex: 'PercentDoneByStoryPlanEstimate'
+                                    },
+                                    {
+                                        text: 'Timebox',
+                                        dataIndex: 'Project',  //Just so that the renderer gets called
+                                        minWidth: 80,
+                                        renderer: function (value, metaData, record, rowIdx, colIdx, store) {
+                                            var retval = '';
+                                                if (record.hasField('Iteration')) {
+                                                    retval = record.get('Iteration')?record.get('Iteration').Name:'NOT PLANNED';
+                                                } else if (record.hasField('Release')) {
+                                                    retval = record.get('Release')?record.get('Release').Name:'NOT PLANNED';
+                                                } else if (record.hasField('PlannedStartDate')){
+                                                    retval = Ext.Date.format(record.get('PlannedStartDate'), 'd/M/Y') + ' - ' + Ext.Date.format(record.get('PlannedEndDate'), 'd/M/Y');
+                                                }
+                                            return (retval);
+                                        }
+                                    },
+                                    'State',
+                                    'PredecessorsAndSuccessors',
+                                    'ScheduleState'
+                                ]
+                            },
+                            model: this.model
+                        }
+                    );
+                    children.down('#header').destroy();
+
+                    var cfd = Ext.create('Rally.apps.CFDChart', {
+                        record: this.record,
+                        width: '95%',
+                        container: this.down('#rightCol')
+                    });
+                    cfd.generateChart();
+
+                }
+            },
+
+            //This is specific to customer. Features are used as RAIDs as well.
+            nonRAIDStoreConfig: function() {
+                if (this.record.hasField('c_RAIDType') ){
+                    switch (this.record.self.ordinal) {
+                        case 1:
+                            return  {
+                                filters: {
+                                    property: 'c_RAIDType',
+                                    operator: '=',
+                                    value: ''
+                                },
+                                fetch: gApp.STORE_FETCH_FIELD_LIST,
+                                pageSize: 50
+                            };
+                        default:
+                            return {
+                                fetch: gApp.STORE_FETCH_FIELD_LIST,
+                                pageSize: 50
+                            };
+                    }
+                }
+                else return {
+                    fetch: gApp.STORE_FETCH_FIELD_LIST,
+                    pageSize: 50                                                    
+                };
+            },
+
+            //This is specific to customer. Features are used as RAIDs as well.
+            RAIDStoreConfig: function() {
+                var retval = {};
+
+                if (this.record.hasField('c_RAIDType')){
+                            return {
+                                filters: [{
+                                    property: 'c_RAIDType',
+                                    operator: '!=',
+                                    value: ''
+                                }],
+                                fetch: gApp.STORE_FETCH_FIELD_LIST,
+                                pageSize: 50
+                            };
+                    }
+                else return {
+                    fetch: gApp.STORE_FETCH_FIELD_LIST,
+                    pageSize: 50
+                };
+            },
+
+            RISKColour: function(severity, probability, state) {
+                if ( state === 'Closed' || state === 'Cancelled') {
+                    return 'RAID-blue';
+                }
+
+                if (severity === 'Exceptional') {
+                    return 'RAID-red textBlink';
+                }
+
+                if (severity ==='High' && (probability === 'Likely' || probability === 'Certain'))
+                {
+                    return 'RAID-red';
+                }
+
+                if (
+                    (severity ==='High' && (probability === 'Unlikely' || probability === 'Possible')) ||
+                    (severity ==='Moderate' && (probability === 'Likely' || probability === 'Certain'))
+                ){
+                    return 'RAID-amber';
+                }
+                if (
+                    (severity ==='Moderate' && (probability === 'Unlikely' || probability === 'Possible')) ||
+                    (severity ==='Low')
+                ){
+                    return 'RAID-green';
+                }
+                
+                var lClass = 'RAID-missing';
+                if (!severity) lClass += '-severity';
+                if (!probability) lClass += '-probability';
+
+                return lClass;
+            },
+
+            AIDColour: function(severity, probability, state) {
+                if ( state === 'Closed' || state === 'Cancelled') {
+                    return 'RAID-blue';
+                }
+
+                if (severity === 'Exceptional') 
+                {
+                    return 'RAID-red';
+                }
+
+                if (severity === 'High') 
+                {
+                    return 'RAID-amber';
+                }
+
+                if ((severity === 'Moderate') ||
+                    (severity === 'Low')
+                ){
+                    return 'RAID-green';                    
+                }
+                return 'RAID-missing-severity-probability'; //Mark as unknown
+            }
+        });
+    },
+
+    _dataCheckForItem: function(d){
+        return "";
+    },
+
     
+    _textMouseOver: function(row, index, array) {
+        var node = gApp._nodes[index];
+        if (!(node.record.data.ObjectID)) {
+            //Only exists on real items, so do something for the 'unknown' item
+            return;
+        } else {
+
+            if ( !node.card) {
+                var card = Ext.create('Rally.ui.cardboard.Card', {
+                    'record': node.record,
+                    fields: gApp.CARD_DISPLAY_FIELD_LIST,
+                    constrain: false,
+                    width: gApp.MIN_CARD_WIDTH,
+                    height: 'auto',
+                    floating: true, //Allows us to control via the 'show' event
+                    shadow: false,
+                    showAge: true,
+                    resizable: true,
+                    // listeners: {
+                    //     show: function(card){
+                    //         //Move card to one side, preferably closer to the centre of the screen
+                    //         var xpos = array[index].getScreenCTM().e - gApp.MIN_CARD_WIDTH;
+                    //         var ypos = array[index].getScreenCTM().f;
+                    //         card.el.setLeftTop( (xpos - gApp.MIN_CARD_WIDTH) < 0 ? xpos + gApp.MIN_CARD_WIDTH : xpos - gApp.MIN_CARD_WIDTH, 
+                    //             (ypos + this.getSize().height)> gApp.getSize().height ? gApp.getSize().height - (this.getSize().height+20) : ypos);  //Tree is rotated
+                    //     }
+                    // }
+                });
+                node.card = card;
+            }
+            node.card.show();
+            node.card.setPosition(this.getScreenCTM().e, this.getScreenCTM().f);
+        }
+    },
+
+    _textMouseOut: function(row, index, array) {
+        var node = gApp._nodes[index];
+        node.card.hide();
+    },
+
     _reOrder: function(value) {
             x.domain(value());
 
@@ -439,36 +828,6 @@ var gApp;
             });
         },
     
-        // var timeout = setTimeout(function() {
-        // order("group");
-        // d3.select("#order").property("selectedIndex", 2).node().focus();
-        // }, 5000);
-
-    // _nodeMouseOut: function(node, index,array){
-
-    // },
-
-    // _nodeMouseOver: function(node,index,array) {
-
-    // },
-    
-    // _nodePopup: function(node, index, array) {
-
-    // },
-
-    _nodeClick: function (node,index,array) {
-        if (!(node.data.record.data.ObjectID)){ return; } //Only exists on real items
-        if (event.shiftKey) { 
-            gApp._nodePopup(node,index,array); 
-        }  else {
-            gApp._dataPanel(node,index,array);
-        }
-    },
-
-    // _dataPanel: function(node, index, array) {
-
-    // },
-
     //Entry point after creation of render box
     _onElementValid: function(rs) {
         //Add any useful selectors into this container ( which is inserted before the rootSurface )
@@ -530,6 +889,7 @@ var gApp;
 
     onSettingsUpdate: function() {
         if ( gApp._nodes) gApp._nodes = [];
+        gApp._destroyAxes();
         gApp._getArtifacts( gApp.down('#piType'));
     },
 
@@ -551,6 +911,27 @@ var gApp;
                     listeners: {
                         select: function(a,b,c,d,e,f) {
                             gApp._reOrder(a.value);
+                        }
+                    }
+                }
+            )
+        }
+
+        var groupFuncs = Object.keys(gApp._grouping).map(function(key) { return [ gApp._grouping[key], key];});
+
+        if ( !gApp.down('#groupings')){
+            hdrBox.add(
+                {
+                    xtype: 'rallycombobox',
+                    margin: '10 0 5 20',
+                    itemId: 'grouping',
+                    fieldLabel: 'Group By :',
+                    labelWidth: 100,
+                    store: groupFuncs,
+                    listeners: {
+                        select: function(a,b,c,d,e,f) {
+                            gApp._destroyAxes();
+                            gApp._getArtifacts(ptype);                            
                         }
                     }
                 }
