@@ -1,10 +1,15 @@
-Ext.define('Rally.app.PiDependencies.app', {
+var gApp;
+(function () {
+    var Ext = window.Ext4 || window.Ext;
+
+    Ext.define('Rally.app.PiDependencies.app', {
     extend: 'Rally.app.App',
     componentCls: 'app',
     config: {
         defaultSettings: {
             showFilter: true,
-            hideArchived: true
+            hideArchived: true,
+            onlyDependencies: true
         }
     },
     getSettingsFields: function() {
@@ -20,17 +25,24 @@ Ext.define('Rally.app.PiDependencies.app', {
                 fieldLabel: 'Show Advanced filter',
                 name: 'showFilter',
                 labelAlign: 'top'
+            },
+            {
+                xtype: 'rallycheckboxfield',
+                fieldLabel: 'Show Only those with Dependencies',
+                name: 'onlyDependencies',
+                labelAlign: 'top'
             }
         ];
         return returned;
     },
     itemId: 'rallyApp',
-    MIN_COLUMN_WIDTH:   200,        //Looks silly on less than this
-    MIN_ROW_HEIGHT: 20 ,                 //
+    MIN_COLUMN_WIDTH:   15,        //Looks silly on less than this
+    MAX_COLUMN_WIDTH:   50,
     LOAD_STORE_MAX_RECORDS: 100, //Can blow up the Rally.data.wsapi.filter.Or
     WARN_STORE_MAX_RECORDS: 300, //Can be slow if you fetch too many
     NODE_CIRCLE_SIZE: 8,                //Pixel radius of dots
-    LEFT_MARGIN_SIZE: 100,               //Leave space for "World view" text
+    
+    _gridMargin: {top: 80, right: 400, bottom: 10, left: 80},
 
     STORE_FETCH_FIELD_LIST: [
         'Name',
@@ -54,6 +66,7 @@ Ext.define('Rally.app.PiDependencies.app', {
         'PredecessorsAndSuccessors',                
         'State',
         'PreliminaryEstimate',
+        'PreliminaryEstimateValue',
         'Description',
         'Notes',
         'Predecessors',
@@ -91,7 +104,7 @@ Ext.define('Rally.app.PiDependencies.app', {
 
     ],
 
-    SIZEFIELD: 'PreliminaryEstimate',
+    SIZEFIELD: 'PreliminaryEstimateValue',
 
     items: [
         {
@@ -111,78 +124,160 @@ Ext.define('Rally.app.PiDependencies.app', {
     ],
     //Set the SVG area to the surface we have provided
     _setSVGSize: function() {
+        var colSize = Math.min( 800/gApp._nodes.length, gApp.MAX_COLUMN_WIDTH);
+        gApp._gridSize = Math.max(colSize, gApp.MIN_COLUMN_WIDTH) * gApp._nodes.length;
+
+        console.log('Grid sizing: ', gApp._gridSize);
         
-        var gridSize = { x: 800, y: 800};    //Needs to be square        
-        var margin = {top: 80, right: 0, bottom: 10, left: 80};
         var svg = d3.select('svg');
         
-        svg.attr('width', gridSize.x + margin.left + margin.right);
-        svg.attr('height',gridSize.y + margin.top + margin.bottom);
+        svg.attr('width', gApp._gridSize + gApp._gridMargin.left + gApp._gridMargin.right);
+        svg.attr('height',gApp._gridSize + gApp._gridMargin.top + gApp._gridMargin.bottom);
 
         var xAxis = svg.append('g');
         var yAxis = svg.append('g');
         
-        xAxis.attr("transform", "rotate(-90)")
+        yAxis.attr("transform", "rotate(-90)")
             .append("text")
-                .attr("x", -80)
-                .attr("y", 20)
+                .attr("x", -gApp._gridMargin.top)
+                .attr("y", gApp._gridMargin.left/4)
                 .attr("dy", ".32em")
                 .attr("text-anchor", "end")
                 .text("Successors");
     
-        yAxis.append("text")
-                .attr("x", 80)
-                .attr("y", 20)
+        xAxis.append("text")
+                .attr("x", gApp._gridMargin.left)
+                .attr("y", gApp._gridMargin.top/4)
                 .attr("dy", ".32em")
                 .attr("text-anchor", "start")
                 .text("Predecessors");
-        
-        gApp._svg = svg.append('g')
-            .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-            .attr("width", gridSize.x)
-            .attr("height", gridSize.x);
 
-        gApp._svg.append("rect")
-            .style("margin-left", -margin.left + "px")
-            .attr("class", "background")
-            .attr("width", gridSize.x)
-            .attr("height", gridSize.x);
+    },
+
+    _setUpGrid: function(num) {  
+
+        console.log('Grid request for: ', num, ' items');
+        var svg = d3.select('svg');
+
+        //Let these slide out to globals
+        x = d3.scaleBand().range([0, gApp._gridSize]);
+        z = d3.scaleLinear().domain([0, 4]).clamp(true);
+        c = d3.scaleOrdinal(d3.schemeCategory10).domain(d3.range(10));
+
+        //Start with ordered by FormattedID
+        x.domain(gApp.down('#sortOrder').value());        
+        
+        if (num > 0) {
+
+            gApp._svg = svg.append('g')
+                .attr("id","grid")
+                .attr("transform", "translate(" + gApp._gridMargin.left + "," + gApp._gridMargin.top + ")")
+                .attr("width", gApp._gridSize)
+                .attr("height", gApp._gridSize);
+
+            gApp._svg.append("rect")
+                .style("margin-left", -gApp._gridMargin.left + "px")
+                .attr("class", "background")
+                .attr("width", gApp._gridSize)
+                .attr("height", gApp._gridSize);
+
+            var column = gApp._svg.selectAll(".column")
+                .data(gApp._matrix)
+                .enter().append("g")
+                .attr("class", "column")
+                .attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
+        
+            column.append("line")
+                .attr("x1", -gApp._gridSize);
+        
+                column.append("text")
+                .attr("id", "titleText")
+                .attr("x", 6)
+                .attr("y", x.bandwidth() / 2)
+                .attr("dy", ".32em")
+                .attr("text-anchor", "start")
+                .text(function(d, i) { return gApp._nodes[i].Name; });
+                
+        }    
+        else { 
+            gApp._showNoDependencies();
+        }
+        
         
     },
     _nodeTree: null,
+    
+    _destroyGrid: function() {
+        var svg = d3.select("#grid").remove();
+    },
+
+    _showNoDependencies: function() {
+        d3.select('svg')
+            .append('g')
+            .attr("id", "grid")
+            .attr('transform', 'translate( ' + gApp._gridMargin.left + ',' + gApp._gridMargin.top + ')' )
+                .append('text')
+                    .text('No dependencies found for your items in selection criteria')
+                    .attr('text-anchor','start')
+                    .attr("class", 'boldText');
+    },
+
+    _currentGroups: [],
+
+    _getGroupFor: function(record) {
+        var index = _.indexOf(gApp._currentGroups, record);
+        if ( index < 0 ) {
+            gApp._currentGroups.push(record);
+            index = _.indexOf(gApp._currentGroups, record);
+        }
+        return index;
+    },
+
     //Continuation point after selectors ready/changed
-
     _enterMainApp: function() {
-
+        gApp._destroyGrid();
         gApp._drawGrid();
     },
 
     _drawGrid: function(){
         gApp._matrix = [];
         var n = gApp._nodes.length;
+
+        //Set the svg area to the required size
+        this._setSVGSize(n);
+        
         // Compute index per node.
         gApp._nodes.forEach(function(node, i) {
             node.index = i;
             node.count = 0;
-            node.group = node.record.data.Parent ? node.record.data.Parent._ref : 0;
+            node.group = gApp._getGroupFor(node.record.data.Parent);
             gApp._matrix[i] = d3.range(n).map(function(j) { return {x: j, y: i, z: 0}; });
         });
 
+        //Get grid ready for drawing
+        gApp._setUpGrid(n);
+
         //Now for each node, add a value to the matrix for the dependency
-        gApp._nodes.forEach(function(node,i){
+        gApp._nodes.forEach(function(node){
             if (node.record && node.record.data.Predecessors && node.record.data.Predecessors.Count){
                 //Now we need to find the Predecessor details and dynamically fill in the matix
-                var preds = node.record.getCollection('Predecessors').load({
+                node.record.getCollection('Predecessors').load({
                     fetch: true,
                     callback: function (records, operation, success) {
-                        //For each record, find the matrix element and update
-                        _.each(records, function(record) {
-                            var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
-                            var j = gApp._findNodeIndexByRef(gApp._nodes, record.data._ref);
-                            gApp._matrix[i][j].count += 1;
-                            gApp._matrix[i][j].z += record.data[gApp.SIZEFIELD];
-                        });
-                        gApp._refreshGrid();
+                        if (success) {
+                            //For each record, find the matrix element and update
+                            _.each(records, function(record) {
+                                var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
+                                var j = gApp._findNodeIndexByRef(gApp._nodes, record.data._ref);
+                                if ( j < 0 ) {  // Record is outside those selected
+                                    gApp._matrix[i].error = 1;
+                                } else {
+                                    gApp._matrix[i][j].count = gApp._matrix[i][j].count ? gApp._matrix[i][j].count += 1 : 1;
+                                    gApp._matrix[i][j].z += record.get(gApp.SIZEFIELD) || 0;
+                                }
+                            });
+                            gApp._refreshGrid();
+                        }
                     }
                 });
             }
@@ -190,22 +285,27 @@ Ext.define('Rally.app.PiDependencies.app', {
     },
 
     _sortOrders: {
+        FormattedID:   function() {
+            return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.ascending(gApp._nodes[a].record.get('ObjectID'), gApp._nodes[b].record.get('ObjectID')); });
+        },
+
         Name:   function() {
-                    return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.ascending(gApp._nodes[a].Name, gApp._nodes[b].Name); });
+            return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.ascending(gApp._nodes[a].record.get('Name'), gApp._nodes[b].record.get('Name')); });
+        },
+
+        PreliminaryEstimateValue:   function() {
+                    return d3.range(gApp._nodes.length).sort(function(b, a) { return d3.ascending(gApp._nodes[a].record.get('PreliminaryEstimateValue'), gApp._nodes[b].record.get('PreliminaryEstimateValue')); });
                 },
-        Size:   function() {
-                    return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.ascending(gApp._nodes[a].record.get('PreliminaryEstimate'), gApp._nodes[b].record.get('PreliminaryEstimate')); });
-                },
-        Parent:   
-            function() {
-                return d3.range(gApp._nodes.length).sort(function(a, b) { 
-                    return d3.ascending(
-                        gApp._nodes[a].record.get('Parent') && gApp._nodes[a].record.get('Parent')._ref, 
-                        gApp._nodes[b].record.get('Parent') && gApp._nodes[b].record.get('Parent')._ref
-                    ); 
-                });
-            },
-        Start:   
+        // Parent:   
+        //     function() {
+        //         return d3.range(gApp._nodes.length).sort(function(a, b) { 
+        //             return d3.ascending(
+        //                 gApp._nodes[a].record.get('Parent') && gApp._nodes[a].record.get('Parent')._ref, 
+        //                 gApp._nodes[b].record.get('Parent') && gApp._nodes[b].record.get('Parent')._ref
+        //             ); 
+        //         });
+        //     },
+        PlannedStartDate:   
             function() {
                 return d3.range(gApp._nodes.length).sort(function(a, b) { 
                     return d3.ascending(
@@ -214,7 +314,7 @@ Ext.define('Rally.app.PiDependencies.app', {
                     ); 
                 });
             },
-        End:   
+        PlannedEndDate:   
             function() {
                 return d3.range(gApp._nodes.length).sort(function(a, b) { 
                     return d3.ascending(
@@ -226,127 +326,138 @@ Ext.define('Rally.app.PiDependencies.app', {
 
     },
 
-    _destroyGrid: function() {
-        debugger;
-        d3.select(".column").destroy();
-        d3.select(".row").destroy();
-        d3.select(".cell").destroy();
-    },
     _refreshGrid: function() {
-
-//        gApp._destroyGrid();
     
+        var grid = d3.select("grid");
+        if (grid) { grid.remove(); }
+
         //Get the current viewBox
-        var svg = gApp._svg
+        var svg = gApp._svg;
         var width = svg.attr('width');
         var height = svg.attr('height');
 
-        var x = d3.scaleBand().range([0, width]),
-            z = d3.scaleLinear().domain([0, 4]).clamp(true),
-            c = d3.scaleOrdinal(d3.schemeCategory10).domain(d3.range(10));
-
-        //Start with ordered by FormattedID
-        x.domain(gApp._sortOrders.Start());
-
-        var row = svg.selectAll(".row")
+        var rows = svg.selectAll(".row")
             .data(gApp._matrix)
             .enter().append("g")
             .attr("class", "row")
             .attr("transform", function(d, i) { return "translate(0," + x(i) + ")"; })
             .each(row);
     
-        row.append("line")
+        rows.append("line")
             .attr("x2", width);
     
-        row.append("text")
+        rows.append("text")
             .attr("x", -6)
             .attr("y", x.bandwidth() / 2)
             .attr("dy", ".32em")
             .attr("text-anchor", "end")
-            .text(function(d, i) {  return gApp._nodes[i].Name; });
-    
-        var column = svg.selectAll(".column")
-            .data(gApp._matrix)
-            .enter().append("g")
-            .attr("class", "column")
-            .attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
-    
-        column.append("line")
-            .attr("x1", -width);
-    
-        column.append("text")
-            .attr("x", 6)
+            .attr("class", function(d,i) {
+                if (gApp._matrix[i].error ) {
+                    return "textBlink";
+                }
+                else {
+                    return "normalText";
+                }
+            })
+            .on("mouseover", textmouseOver)
+            .on("mouseout", textMouseOut)
+            .text(function(d, i) {  
+                return gApp._nodes[i].Name; 
+            });
+        
+        rows.append("text")
+            .attr("id", "infoText")
+            .attr("x", gApp._gridSize + 10)
             .attr("y", x.bandwidth() / 2)
             .attr("dy", ".32em")
             .attr("text-anchor", "start")
-            .text(function(d, i) { return gApp._nodes[i].Name; });
+            .text(function(d, i) { 
+                return gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue); 
+            });
+    
+
+    
+        function textmouseOver(p) {
+            debugger;
+            return;
+        }
+
+        function textMouseOut(p) {
+            return;
+        }
     
         function row(row) {
         var cell = d3.select(this).selectAll(".cell")
             .data(row.filter(function(d) { return d.z; }))
-            .enter().append("rect")
+            .enter().append("circle")
+//            .enter().append("rect")
             .attr("class", "cell")
-            .attr("x", function(d) { return x(d.x); })
-            .attr("width", x.bandwidth())
-            .attr("height", x.bandwidth())
+            .attr("cx", function(d) { return x(d.x) + (x.bandwidth()/2); })
+            .attr("cy", function(d) { return x.bandwidth()/2; })
+            // .attr("y", function(d) { return x(d.y); })
+            .attr("r", x.bandwidth()/2 - 4)
+            // .attr("width", x.bandwidth())
+            // .attr("height", x.bandwidth())
             .style("fill-opacity", function(d) { return z(d.z); })
-            .style("fill", function(d) { return gApp._nodes[d.x].group == gApp._nodes[d.y].group ? c(gApp._nodes[d.x].group) : c(1); })
+            .style("fill", function(d) { return gApp._nodes[d.x].group === gApp._nodes[d.y].group ? c(gApp._nodes[d.y].group) : c(gApp._nodes[d.x].group); })
             .on("mouseover", mouseover)
             .on("mouseout", mouseout);
         }
     
         function mouseover(p) {
-            d3.selectAll(".row text").classed("active", function(d, i) { return i == p.y; });
-            d3.selectAll(".column text").classed("active", function(d, i) { return i == p.x; });
+            d3.selectAll(".row text").classed("active", function(d, i) { return i === p.y; });
+            d3.selectAll(".column text").classed("active", function(d, i) { return i === p.x; });
         }
     
         function mouseout() {
             d3.selectAll("text").classed("active", false);
         }
+    },
     
-        // d3.select("#order").on("change", function() {
-        // clearTimeout(timeout);
-        // order(this.value);
-        // });
     
-        function order(value) {
-            x.domain(orders[value]);
+    _reOrder: function(value) {
+            x.domain(value());
+
+            var grid = d3.select("#grid");
         
-            var t = svg.transition().duration(2500);
+            var t = grid.transition().duration(2500);
         
             t.selectAll(".row")
                 .delay(function(d, i) { return x(i) * 4; })
                 .attr("transform", function(d, i) { return "translate(0," + x(i) + ")"; })
                 .selectAll(".cell")
                 .delay(function(d) { return x(d.x) * 4; })
-                .attr("x", function(d) { return x(d.x); });
-        
+                .attr("x", function(d) { return x(d.x); })      // For text and lines
+                .attr("cx", function(d) { return x(d.x) + (x.bandwidth()/2); });    //For circles
+    
             t.selectAll(".column")
                 .delay(function(d, i) { return x(i) * 4; })
                 .attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
-        }
+
+            grid.selectAll('#infoText').each( function (d, i, n) { 
+                this.innerHTML = gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue) 
+            });
+        },
     
         // var timeout = setTimeout(function() {
         // order("group");
         // d3.select("#order").property("selectedIndex", 2).node().focus();
         // }, 5000);
+
+    // _nodeMouseOut: function(node, index,array){
+
+    // },
+
+    // _nodeMouseOver: function(node,index,array) {
+
+    // },
     
-    },
+    // _nodePopup: function(node, index, array) {
 
-    _nodeMouseOut: function(node, index,array){
-
-    },
-
-    _nodeMouseOver: function(node,index,array) {
-
-    },
-    
-    _nodePopup: function(node, index, array) {
-
-    },
+    // },
 
     _nodeClick: function (node,index,array) {
-        if (!(node.data.record.data.ObjectID)) return; //Only exists on real items
+        if (!(node.data.record.data.ObjectID)){ return; } //Only exists on real items
         if (event.shiftKey) { 
             gApp._nodePopup(node,index,array); 
         }  else {
@@ -354,9 +465,9 @@ Ext.define('Rally.app.PiDependencies.app', {
         }
     },
 
-    _dataPanel: function(node, index, array) {
+    // _dataPanel: function(node, index, array) {
 
-    },
+    // },
 
     //Entry point after creation of render box
     _onElementValid: function(rs) {
@@ -374,15 +485,15 @@ Ext.define('Rally.app.PiDependencies.app', {
                 {
                     xtype:  'rallyportfolioitemtypecombobox',
                     itemId: 'piType',
-                    fieldLabel: 'Choose Lowest Portfolio Type :',
+                    fieldLabel: 'Choose Portfolio Type :',
                     labelWidth: 100,
                     margin: '5 0 5 20',
-                    defaultSelectionPosition: 'first',
                     storeConfig: {
                         sorters: {
                             property: 'Ordinal',
                             direction: 'ASC'
-                        }
+                        },
+                        fetch: true
                     },
                     listeners: {
                         select: function() { gApp._kickOff();}    //Jump off here to add portfolio size selector
@@ -390,8 +501,6 @@ Ext.define('Rally.app.PiDependencies.app', {
                 },
             ]
         });
-        //Set the svg area to the required size
-        this._setSVGSize();
         
     },
     numStates: [],
@@ -419,11 +528,34 @@ Ext.define('Rally.app.PiDependencies.app', {
         }
     },
 
+    onSettingsUpdate: function() {
+        if ( gApp._nodes) gApp._nodes = [];
+        gApp._getArtifacts( gApp.down('#piType'));
+    },
+
     _kickOff: function() {
         var ptype = gApp.down('#piType');
         gApp._typeStore = ptype.store;
-
         var hdrBox = gApp.down('#headerBox');
+
+        var sortFuncs = Object.keys(gApp._sortOrders).map(function(key) { return [ gApp._sortOrders[key], key];});
+        if ( !gApp.down('#sortOrder')){
+            hdrBox.add(
+                {
+                    xtype: 'rallycombobox',
+                    margin: '10 0 5 20',
+                    itemId: 'sortOrder',
+                    fieldLabel: 'Sort Order :',
+                    labelWidth: 100,
+                    store: sortFuncs,
+                    listeners: {
+                        select: function(a,b,c,d,e,f) {
+                            gApp._reOrder(a.value);
+                        }
+                    }
+                }
+            )
+        }
 
         if (!gApp.down('#infoButton')){
                 hdrBox.add( {
@@ -444,24 +576,21 @@ Ext.define('Rally.app.PiDependencies.app', {
                         items: {
                             xtype: 'component',
                             html: 
-                                '<p class="boldText">Bottom-Up Tree View</p>' +
-                                '<p>This app will find all the items of a particular Portfolio artefact typein your chosen node,' +
-                                ' then traverse up the dependency links to the top.</p>' +
-                                '<p class="boldText">Exploring the data</p><p>You can investigate dependencies by using &lt;shift&gt;-Click ' +
-                                'on the semi-circle at the top of the card. This will call up an overlay with the relevant dependencies. Clicking on the FormattedID on any' +
-                                ' artefact in the overlay will take you to it in either the EDP or QDP page (whichever you have enabled for your' +
-                                ' session )</p>' +
-                                '<p>If you click on the circle without using shift, then a data panel will appear containing more information about that artefact</p>' +
-                               '<p class="boldText">Filtering</p>' +
+                                '<p class="boldText">Dependency Grid</p>' +
+                                '<p>This app will find all the items of a particular Portfolio artefact type in your chosen node,' +
+                                ' then lay out a two dimensional grid if any of them have dependencies.</p>' +
+                                '<p class="boldText">Exploring the data</p>' +
+                                '<p class="boldText">Filtering</p>' +
                                '<p>There are app settings to enable the extra filtering capabilities on the main page, so that you can choose which lowest-level portfolio items to see' +
                                ' e.g. filter on Owner, Investment Type, etc. </p><p>To filter by release (e.g. to find all those features scheduled into a Program Increment)' +
                                ' you will need to edit the Page settings (not the App Settings) to add a Release or Milestone filter</p>' +
-                                '<p>Source code available here: <br/><a href=https://github.com/nikantonelli/Dendogram> Github Repo</a></p>',
+                                '<p>Source code available here: <br/><a href=https://github.com/nikantonelli/DependencyGrid> Github Repo</a></p>',
                             padding: 10
                         }
                     });
                 }
             } );
+            //Create a dropdown for the sort order
         }
 
         if (!gApp._filterPanel){
@@ -521,7 +650,7 @@ Ext.define('Rally.app.PiDependencies.app', {
     _getArtifacts: function(ptype) {
     console.log('getArtifacts');
         //On re-entry remove all old stuff
-        if ( gApp._nodes) gApp._nodes = [];
+        if ( gApp._nodes) {gApp._nodes = [];}
         if (gApp._nodeTree) {
             d3.select("#tree").remove();
             gApp._nodeTree = null;
@@ -535,12 +664,20 @@ Ext.define('Rally.app.PiDependencies.app', {
                 if (dataArray.length >= gApp.WARN_STORE_MAX_RECORDS) {
                     Rally.ui.notify.Notifier.showWarning({message: 'Excessive limit of first level records. Narrow your scope '});
                 }
-                console.log('Adding nodes: ', dataArray);
-                gApp._nodes = gApp._createNodes(dataArray); //These will have their local variable set true.
+                console.log('Adding ' + typeRecords[modelNumber].get('TypePath') + ' nodes: ', dataArray);
+
+                if (gApp.getSetting('onlyDependencies')) {
+                    gApp._nodes = gApp._createNodes(_.filter(dataArray, function(n) {
+                        return n.get('PredecessorsAndSuccessors') && n.get('PredecessorsAndSuccessors').Count > 0;
+                    }));
+                }
+                else {
+                    gApp._nodes = gApp._createNodes(dataArray); //These will have their local variable set true.
+                }
                 gApp._enterMainApp();
             },
             failure: function(error) {
-                console.log("Failed to load a store");
+                console.log("Failed to load a store", error.error.errors);
             }
         });
     },
@@ -630,11 +767,9 @@ Ext.define('Rally.app.PiDependencies.app', {
     },
 
     _findNodeIndexByRef: function(nodes, ref) {
-        var returnNode = 0;
-        returnNode = _.findIndex(nodes, function(node) {
+        return _.findIndex(nodes, function(node) {
             return ((node.record && node.record.data._ref) === ref);
         });
-        return returnNode >= 0 ? returnNode : 0;
     },
 
     _findNodeById: function(nodes, id) {
@@ -649,8 +784,9 @@ Ext.define('Rally.app.PiDependencies.app', {
         var piModels = [];
         _.each(gApp._typeStore.data.items, function(type) {
             //Only push types above that selected
-            if (type.data.Ordinal >= lowestOrdinal )
+            if (type.data.Ordinal >= lowestOrdinal ){
                 piModels.push({ 'type': type.data.TypePath.toLowerCase(), 'Name': type.data.Name, 'ref': type.data._ref});
+            }
         });
         return piModels;
     },
@@ -660,22 +796,36 @@ Ext.define('Rally.app.PiDependencies.app', {
     },
     _getModelFromOrd: function(number){
         var model = null;
-        _.each(gApp._typeStore.data.items, function(type) { if (number == type.get('Ordinal')) { model = type; } });
+        _.each(gApp._typeStore.data.items, function(type) { if (number === type.get('Ordinal')) { model = type; } });
         return model && model.get('TypePath');
     },
 
     _getSelectedOrdinal: function() {
-        return gApp.down('#piType').lastSelection[0].get('Ordinal')
+        return gApp.down('#piType').lastSelection[0].get('Ordinal');
     },
 
     _getOrdFromModel: function(modelName){
         var model = null;
         _.each(gApp._typeStore.data.items, function(type) {
-            if (modelName == type.get('TypePath').toLowerCase()) {
+            if (modelName === type.get('TypePath').toLowerCase()) {
                 model = type.get('Ordinal');
             }
         });
         return model;
+    },
+
+    _getPrefixFromModel: function(modelName){
+        var prefix = null;
+        _.each(gApp._typeStore.data.items, function(type) {
+            if (modelName === type.get('TypePath').toLowerCase()) {
+                prefix = type.get('IDPrefix');
+            }
+        });
+        return prefix;
+    },
+
+    _getIDFromRecord: function(record) {
+        return record.get('FormattedID').slice(gApp._getPrefixFromModel(record.get('_type').length));
     },
 
     _getNodeId: function(d){
@@ -687,3 +837,4 @@ Ext.define('Rally.app.PiDependencies.app', {
         //API Docs: https://help.rallydev.com/apps/2.1/doc/
     },
 });
+}());
