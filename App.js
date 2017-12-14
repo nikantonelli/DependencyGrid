@@ -1155,7 +1155,7 @@ var gApp;
 
 
     _loadStoreLocal: function(modelName) {
-        var filters;
+        var filters = Ext.create('Rally.data.wsapi.Filter', { property: 'ObjectUUID', operator: '!=', value: null});    //Create a 'true' filter
         var storeConfig =
             {
                 model: modelName,
