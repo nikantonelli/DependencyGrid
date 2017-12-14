@@ -21,3 +21,5 @@ The app options will allow you to minimise the number of columns and rows by onl
 There are app settings to enable the extra filtering capabilities on the main page, so that you can choose which portfolio items to see e.g. filter on Owner, Investment Type, etc.
 
 You can use the advanced filter to show you items in a particular Program Increment. If there are dependencies from a successor to a Predecessor that was not in the filtered selection, the Sucessors name to the left will blink slowly.
+
+![alt text](https://github.com/nikantonelli/DependencyGrid/blob/master/Images/Untitled.png)
