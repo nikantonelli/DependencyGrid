@@ -36,7 +36,7 @@ var gApp;
         return returned;
     },
     itemId: 'rallyApp',
-    MIN_COLUMN_WIDTH:   15,        //Looks silly on less than this
+    MIN_COLUMN_WIDTH:   12,        //Looks silly on less than this
     MAX_COLUMN_WIDTH:   50,
     MIN_CARD_WIDTH: 200,
     LOAD_STORE_MAX_RECORDS: 100, //Can blow up the Rally.data.wsapi.filter.Or
@@ -163,7 +163,7 @@ var gApp;
         //Let these slide out to globals
         x = d3.scaleBand().range([0, gApp._gridSize]);
         z = d3.scaleLinear().domain([0, 4]).clamp(true);
-        c = d3.scaleOrdinal(d3.schemeCategory20).domain(d3.range(10));
+        c = d3.scaleOrdinal(d3.schemeCategory20c).domain(d3.range(10));
 
         //Start with ordered by FormattedID
         x.domain(gApp.down('#sortOrder').value());        
@@ -315,7 +315,23 @@ var gApp;
         },
         Parent: function() {
             return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Parent') }))
+        },
+        Release: function() {
+            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Release') }))
+        },
+        State: function() {
+            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('State') }))
+        },
+        Owner: function() {
+            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Owner') }))
+        },
+        Project: function() {
+            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Project') }))
         }
+        // },
+        // Ready: function() {
+        //     return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Ready') }))
+        // }
     },
 
     _sortOrders: {
@@ -378,8 +394,15 @@ var gApp;
             .each(row);
     
         rows.append("line")
-            .attr("x2", width);
-    
+            .attr("x2", width)
+            .on("click", function(p, i, a) { 
+                d3.selectAll("line").attr("stroke-width", 1);
+                d3.selectAll("line").attr("opacity", 1);                
+                d3.selectAll("line").classed("active", false);
+                d3.selectAll("line").attr("y1", 0)            
+                d3.selectAll("line").attr("y2", 0)            
+            })
+
         rows.append("text")
             .attr("x", -6)
             .attr("y", x.bandwidth() / 2)
@@ -416,18 +439,33 @@ var gApp;
             .enter().append("circle")
 //            .enter().append("rect")
             .attr("class", "cell")
+            .attr("z-index", -1)
             .attr("cx", function(d) { return x(d.x) + (x.bandwidth()/2); })
             .attr("cy", function(d) { return x.bandwidth()/2; })
             // .attr("y", function(d) { return x(d.y); })
-            .attr("r", x.bandwidth()/2 - 4)
+            .attr("r", (x.bandwidth()/2) * 0.9)
             // .attr("width", x.bandwidth())
             // .attr("height", x.bandwidth())
             .style("fill-opacity", function(d) { return z(d.z); })
             .style("fill", function(d) { return gApp._nodes[d.x].group === gApp._nodes[d.y].group ? c(gApp._nodes[d.y].group) : c(gApp._nodes[d.x].group); })
             .on("mouseover", mouseover)
-            .on("mouseout", mouseout);
+            .on("mouseout", mouseout)
+            .on("click", clickit);
         }
     
+        function clickit(p, i, a) {
+            d3.selectAll(".row line").attr("stroke-width", function(d, i) { return i === p.y ? x.bandwidth() : 1; });
+            d3.selectAll(".column line").attr("stroke-width", function(d, i) { return i === p.x ? x.bandwidth() : 1; });
+            d3.selectAll(".row line").attr("y1", function(d, i) { return i === p.y ? x.bandwidth()/2 : 1; });
+            d3.selectAll(".row line").attr("y2", function(d, i) { return i === p.y ? x.bandwidth()/2 : 1; });
+            d3.selectAll(".column line").attr("y1", function(d, i) { return i === p.x ? x.bandwidth()/2 : 1; });
+            d3.selectAll(".column line").attr("y2", function(d, i) { return i === p.x ? x.bandwidth()/2 : 1; });            
+            d3.selectAll(".row line").attr("opacity", function(d, i) { return i === p.y ? 0.2 : 1; });
+            d3.selectAll(".column line").attr("opacity", function(d, i) { return i === p.x ? 0.2 : 1; });
+            d3.selectAll(".row line").classed("active", function(d, i) { return i === p.y ? true : false; });
+            d3.selectAll(".column line").classed("active", function(d, i) { return i === p.x ? true : false; });
+
+        }
         function mouseover(p) {
             d3.selectAll(".row text").classed("active", function(d, i) { return i === p.y; });
             d3.selectAll(".column text").classed("active", function(d, i) { return i === p.x; });
@@ -845,6 +883,9 @@ var gApp;
                     xtype:  'rallyportfolioitemtypecombobox',
                     itemId: 'piType',
                     fieldLabel: 'Choose Portfolio Type :',
+                    stateful: true,
+                    stateId: this.getContext().getScopedStateId('portfolioitemtype'),
+                    context: this.getContext(),
                     labelWidth: 100,
                     margin: '5 0 5 20',
                     storeConfig: {
@@ -903,6 +944,9 @@ var gApp;
             hdrBox.add(
                 {
                     xtype: 'rallycombobox',
+                    stateful: true,
+                    stateId: this.getContext().getScopedStateId('sortorder'),
+                    context: this.getContext(),
                     margin: '10 0 5 20',
                     itemId: 'sortOrder',
                     fieldLabel: 'Sort Order :',
@@ -919,12 +963,15 @@ var gApp;
 
         var groupFuncs = Object.keys(gApp._grouping).map(function(key) { return [ gApp._grouping[key], key];});
 
-        if ( !gApp.down('#groupings')){
+        if ( !gApp.down('#grouping')){
             hdrBox.add(
                 {
                     xtype: 'rallycombobox',
                     margin: '10 0 5 20',
                     itemId: 'grouping',
+                    stateful: true,
+                    stateId: this.getContext().getScopedStateId('grouporder'),
+                    context: this.getContext(),
                     fieldLabel: 'Group By :',
                     labelWidth: 100,
                     store: groupFuncs,

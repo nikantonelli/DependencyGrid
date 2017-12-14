@@ -8,6 +8,10 @@
   font-family: "Verdana"
 }
 
+.samecell {
+  fill: darkgrey
+}
+
 .legend {
   border-radius: 10px;
   border: 2px solid black;
@@ -115,9 +119,12 @@
 }
   
 line {
-   stroke: #fff;
+  stroke: #fff;
 }
-  
+line.active {
+  stroke: #0000ff;
+}
+
 text.active {
   fill: red;
 }
