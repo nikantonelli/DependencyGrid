@@ -1,11 +1,11 @@
 .column {
-  font-size: 10px;
-  font-family: "Verdana"
+  font-size: 12px;
+  font-family: "NotoSansBold,Helvetica,Arial";
 }
 
 .row {
-  font-size: 10px;
-  font-family: "Verdana"
+  font-size: 12px;
+  font-family: "NotoSansBold,Helvetica,Arial";
 }
 
 .samecell {
@@ -16,19 +16,30 @@
   border-radius: 10px;
   border: 2px solid black;
   background-color: #f3ca5e;
-  font-size: 10px;
-  font-family: "Verdana"
+  font-size: 12px;
+  font-family: "NotoSansBold,Helvetica,Arial";
 }
 
 .boldText {
   font-weight: bold;
-  font-size: 16;
-  font-family: "Verdana"
+  font-size: 12px;
+  font-family: "NotoSansBold,Helvetica,Arial";
 }
 
 .normalText {
-  font-size: 16;
-  font-family: "Verdana"
+  font-size: 12px;
+  font-family: "NotoSansBold,Helvetica,Arial";
+}
+
+.hyperlinkText {
+  fill: #337ec6;
+  font-weight: normal;
+  font-size: 12px;
+  font-family: "NotoSansBold,Helvetica,Arial";
+}
+
+.hyperlinkText.active {
+  fill: #ee0000;
 }
 
 .RAID-Blue {
@@ -127,5 +138,5 @@ line.active {
 }
 
 text.active {
-  fill: red;
+  fill: #ee0000;
 }
