@@ -43,7 +43,42 @@ var gApp;
     WARN_STORE_MAX_RECORDS: 300, //Can be slow if you fetch too many
     NODE_CIRCLE_SIZE: 8,                //Pixel radius of dots
     
-    _gridMargin: {top: 80, right: 400, bottom: 400, left: 80},
+    _gridMargin: {top: 120, right: 400, bottom: 400, left: 120},
+
+    //To be able to show a RAGStatus, you must have some fields in the artefact for severiry, probability and status
+    //The values of these fields must match the RISKColour and AIDColour routines in this file.
+    RAIDseverityField: 'c_RAIDSeverityCriticality',
+    RAIDprobabilityField: 'c_RISKProbabilityLevel',
+    RAIDstatusField: 'c_RAIDRequestStatus',   
+
+    //After caluclating the RAGStatus, it will be one of these entries
+    _RAGStatusMap: [
+        {
+            _refObjectName: 'Red',      //Fixed internal string for this entity
+            Name: 'Red',                //Displayed to user
+            data: { _refObjectName: '#ff0000' } // Data area for any specifics for this code
+        },
+        {
+            _refObjectName: 'Amber',
+            Name: 'Amber',
+            data: { _refObjectName: '#ffb080' } 
+        },
+        {
+            _refObjectName: 'Green',
+            Name: 'Green',
+            data: { _refObjectName: '#00ff00' } 
+        },
+        {
+            _refObjectName: 'Blue',
+            Name: 'Blue',
+            data: { _refObjectName: '#0000ff' } 
+        },
+        {
+            _refObjectName: 'Unset',
+            Name: 'Black',
+            data: { _refObjectName: '#000000' } 
+        }
+    ],
 
     STORE_FETCH_FIELD_LIST: [
         'Blocked',
@@ -135,6 +170,7 @@ var gApp;
         svg.attr('width', gApp._gridSize + gApp._gridMargin.left + gApp._gridMargin.right);
         svg.attr('height',gApp._gridSize + gApp._gridMargin.top + gApp._gridMargin.bottom);
 
+        svg.selectAll('#titleText').remove();
         var xAxis = svg.append('g').attr('id', 'titleText');
         var yAxis = svg.append('g').attr('id', 'titleText');
         
@@ -151,7 +187,7 @@ var gApp;
                 .attr("y", gApp._gridMargin.top/4)
                 .attr("dy", ".32em")
                 .attr("text-anchor", "start")
-                .text("Predecessors");
+                .text(function() { return gApp.down('#piType').rawValue + "(s) selected";});
 
     },
 
@@ -159,11 +195,6 @@ var gApp;
 
         console.log('Grid request for: ', num, ' items');
         var svg = d3.select('svg');
-
-        //Let these slide out to globals
-        x = d3.scaleBand().range([0, gApp._gridSize]);
-        z = d3.scaleLinear().domain([0, 4]).clamp(true);
-        c = d3.scaleOrdinal(d3.schemeCategory20c).domain(d3.range(10));
 
         //Start with ordered by FormattedID
         x.domain(gApp.down('#sortOrder').value());        
@@ -252,9 +283,10 @@ var gApp;
     },
 
     _getGroupFor: function(record) {
+//        debugger;
         var selectedgrouping = gApp.down('#grouping').rawValue;
         var grouping = gApp._grouping[selectedgrouping];
-        var index = _.indexOf(grouping(), record.get(selectedgrouping));
+        var index = _.indexOf(grouping(), record.data[selectedgrouping]);
         return index < 0 ? 19 : index;  //If unknown, use the last number in the schemeCategory20 colouring
     },
 
@@ -273,11 +305,24 @@ var gApp;
         
         // Compute index per node.
         gApp._nodes.forEach(function(node, i) {
+            var setColour = node.record.get('c_RAIDType') ? (node.record.get('c_RAIDType') === 'Risk') ?
+                gApp.RISKColour : gApp.AIDColour : function() { return "Blue"; };
+            node.record.data.RAGStatus = _.find(gApp._RAGStatusMap, { '_refObjectName' : setColour(node)}); //Insert an object for RAGStatus
             node.index = i;
             node.count = 0;
             node.group = gApp._getGroupFor(node.record);
             gApp._matrix[i] = d3.range(n).map(function(j) { return {x: j, y: i, z: 0}; });
         });
+
+        //Dependending on gourping, we need to adapt the colouring. Let these slide out to globals
+        x = d3.scaleBand().range([0, gApp._gridSize]);  //Scale everything to the grid
+        z = d3.scaleLinear().domain([0, 5]).clamp(true);    //Allow for degrees of opacity on number of dependencies
+
+        if (gApp.down('#grouping').rawValue === 'RAGStatus'){
+            c = d3.scaleOrdinal( ['#ff005c', '#f3ca5e', '#b3ee01', '#145FAC'])
+        } else {
+            c = d3.scaleOrdinal(d3.schemeCategory20).domain(d3.range(n));
+        }
 
         //Get grid ready for drawing
         gApp._setUpGrid(n);
@@ -310,11 +355,15 @@ var gApp;
     },
 
     _grouping: {
-        PreliminaryEstimate: function() {
-            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('PreliminaryEstimate') }))
-        },
         Parent: function() {
             return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Parent') }))
+        },
+        RAGStatus: function() {
+            return gApp._RAGStatusMap;
+//            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.data.RAGStatus }));
+        },
+        PreliminaryEstimate: function() {
+            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('PreliminaryEstimate') }))
         },
         Release: function() {
             return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Release') }))
@@ -328,10 +377,7 @@ var gApp;
         Project: function() {
             return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Project') }))
         }
-        // },
-        // Ready: function() {
-        //     return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Ready') }))
-        // }
+        
     },
 
     _sortOrders: {
@@ -404,7 +450,7 @@ var gApp;
             })
 
         rows.append("text")
-            .attr("x", -6)
+            .attr("x", -10)
             .attr("y", x.bandwidth() / 2)
             .attr("dy", ".32em")
             .attr("text-anchor", "end")
@@ -423,6 +469,13 @@ var gApp;
                 return gApp._nodes[i].Name; 
             });
         
+        rows.append("rect")
+            .attr("x", -6)
+            .attr("y",1)
+            .attr("width", 5)
+            .attr("height", x.bandwidth() - 2)
+            .attr("fill", function(d, i, a) { return c(gApp._nodes[i].group)});
+
         rows.append("text")
             .attr("id", "infoText")
             .attr("x", gApp._gridSize + 10)
@@ -437,15 +490,10 @@ var gApp;
         var cell = d3.select(this).selectAll(".cell")
             .data(row.filter(function(d) { return d.z; }))
             .enter().append("circle")
-//            .enter().append("rect")
             .attr("class", "cell")
-            .attr("z-index", -1)
             .attr("cx", function(d) { return x(d.x) + (x.bandwidth()/2); })
             .attr("cy", function(d) { return x.bandwidth()/2; })
-            // .attr("y", function(d) { return x(d.y); })
             .attr("r", (x.bandwidth()/2) * 0.9)
-            // .attr("width", x.bandwidth())
-            // .attr("height", x.bandwidth())
             .style("fill-opacity", function(d) { return z(d.z); })
             .style("fill", function(d) { return gApp._nodes[d.x].group === gApp._nodes[d.y].group ? c(gApp._nodes[d.y].group) : c(gApp._nodes[d.x].group); })
             .on("mouseover", mouseover)
@@ -595,14 +643,10 @@ var gApp;
                                             width: 60,
                                             renderer: function (value, metaData, record, rowIdx, colIdx, store) {
                                                 var setColour = (record.get('c_RAIDType') === 'Risk') ?
-                                                        me.RISKColour : me.AIDColour;
+                                                        gApp.RISKColour : gApp.AIDColour;
                                                 
                                                     return '<div ' + 
-                                                        'class="' + setColour(
-                                                                        record.get('c_RAIDSeverityCriticality'),
-                                                                        record.get('c_RISKProbabilityLevel'),
-                                                                        record.get('c_RAIDRequestStatus')   
-                                                                    ) + 
+                                                        'class="RAID-' + setColour(node) + 
                                                         '"' +
                                                         '>&nbsp</div>';
                                             },
@@ -738,63 +782,64 @@ var gApp;
                 };
             },
 
-            RISKColour: function(severity, probability, state) {
-                if ( state === 'Closed' || state === 'Cancelled') {
-                    return 'RAID-blue';
-                }
-
-                if (severity === 'Exceptional') {
-                    return 'RAID-red textBlink';
-                }
-
-                if (severity ==='High' && (probability === 'Likely' || probability === 'Certain'))
-                {
-                    return 'RAID-red';
-                }
-
-                if (
-                    (severity ==='High' && (probability === 'Unlikely' || probability === 'Possible')) ||
-                    (severity ==='Moderate' && (probability === 'Likely' || probability === 'Certain'))
-                ){
-                    return 'RAID-amber';
-                }
-                if (
-                    (severity ==='Moderate' && (probability === 'Unlikely' || probability === 'Possible')) ||
-                    (severity ==='Low')
-                ){
-                    return 'RAID-green';
-                }
-                
-                var lClass = 'RAID-missing';
-                if (!severity) lClass += '-severity';
-                if (!probability) lClass += '-probability';
-
-                return lClass;
-            },
-
-            AIDColour: function(severity, probability, state) {
-                if ( state === 'Closed' || state === 'Cancelled') {
-                    return 'RAID-blue';
-                }
-
-                if (severity === 'Exceptional') 
-                {
-                    return 'RAID-red';
-                }
-
-                if (severity === 'High') 
-                {
-                    return 'RAID-amber';
-                }
-
-                if ((severity === 'Moderate') ||
-                    (severity === 'Low')
-                ){
-                    return 'RAID-green';                    
-                }
-                return 'RAID-missing-severity-probability'; //Mark as unknown
-            }
         });
+    },
+
+    RISKColour: function(node) {
+        var severity = node.record.get(gApp._RAIDseverityField), 
+            probability = node.record.get(gApp._RAIDprobabilityField), 
+            state = node.record.get(gApp._RAIDstateField);
+
+        if ( state === 'Closed' || state === 'Cancelled') {
+            return 'Blue';
+        }
+
+        if (severity === 'Exceptional') {
+            return 'Red';
+        }
+
+        if (severity ==='High' && (probability === 'Likely' || probability === 'Certain'))
+        {
+            return 'Red';
+        }
+
+        if (
+            (severity ==='High' && (probability === 'Unlikely' || probability === 'Possible')) ||
+            (severity ==='Moderate' && (probability === 'Likely' || probability === 'Certain'))
+        ){
+            return 'Amber';
+        }
+        if (
+            (severity ==='Moderate' && (probability === 'Unlikely' || probability === 'Possible')) ||
+            (severity ==='Low')
+        ){
+            return 'Green';
+        }
+        
+        return 'Black';
+    },
+
+    AIDColour: function(severity, probability, state) {
+        if ( state === 'Closed' || state === 'Cancelled') {
+            return 'Blue';
+        }
+
+        if (severity === 'Exceptional') 
+        {
+            return 'Red';
+        }
+
+        if (severity === 'High') 
+        {
+            return 'Amber';
+        }
+
+        if ((severity === 'Moderate') ||
+            (severity === 'Low')
+        ){
+            return 'Green';                    
+        }
+        return 'Black'; //Mark as unknown
     },
 
     _dataCheckForItem: function(d){
@@ -972,7 +1017,7 @@ var gApp;
                     stateful: true,
                     stateId: this.getContext().getScopedStateId('grouporder'),
                     context: this.getContext(),
-                    fieldLabel: 'Group By :',
+                    fieldLabel: 'Colour Group :',
                     labelWidth: 100,
                     store: groupFuncs,
                     listeners: {
@@ -1095,12 +1140,12 @@ var gApp;
                 console.log('Adding ' + typeRecords[modelNumber].get('TypePath') + ' nodes: ', dataArray);
 
                 if (gApp.getSetting('onlyDependencies')) {
-                    gApp._nodes = gApp._createNodes(_.filter(dataArray, function(n) {
+                    gApp._nodes = gApp._nodes.concat(gApp._createNodes(_.filter(dataArray, function(n) {
                         return n.get('PredecessorsAndSuccessors') && n.get('PredecessorsAndSuccessors').Count > 0;
-                    }));
+                    })));
                 }
                 else {
-                    gApp._nodes = gApp._createNodes(dataArray); //These will have their local variable set true.
+                    gApp._nodes = gApp._nodes.concat(gApp._createNodes(dataArray)); //These will have their local variable set true.
                 }
                 gApp._enterMainApp();
             },
