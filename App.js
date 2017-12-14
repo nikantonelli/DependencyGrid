@@ -1144,15 +1144,7 @@ var gApp;
                     Rally.ui.notify.Notifier.showWarning({message: 'Excessive limit of first level records. Narrow your scope '});
                 }
                 console.log('Adding ' + typeRecords[modelNumber].get('TypePath') + ' nodes: ', dataArray);
-
-                if (gApp.getSetting('onlyDependencies')) {
-                    gApp._nodes = gApp._nodes.concat(gApp._createNodes(_.filter(dataArray, function(n) {
-                        return n.get('PredecessorsAndSuccessors') && n.get('PredecessorsAndSuccessors').Count > 0;
-                    })));
-                }
-                else {
-                    gApp._nodes = gApp._nodes.concat(gApp._createNodes(dataArray)); //These will have their local variable set true.
-                }
+                gApp._nodes = gApp._nodes.concat(gApp._createNodes(dataArray)); //These will have their local variable set true.
                 gApp._enterMainApp();
             },
             failure: function(error) {
@@ -1163,6 +1155,7 @@ var gApp;
 
 
     _loadStoreLocal: function(modelName) {
+        var filters;
         var storeConfig =
             {
                 model: modelName,
@@ -1176,18 +1169,26 @@ var gApp;
                     }
                 ]
             };
-        if (gApp._filterInfo && gApp._filterInfo.filters.length) {
-            storeConfig.filters = gApp._filterInfo.filters;
+
+            if ( gApp.getSetting('onlyDependencies')){
+                filters = Ext.create('Rally.data.wsapi.Filter', { property: 'Predecessors.ObjectID', operator: '!=', value: null });
+                filters = filters.or(Ext.create('Rally.data.wsapi.Filter', { property: 'Successors.ObjectID', operator: '!=', value: null }));
+            }
+
+            if (gApp._filterInfo && gApp._filterInfo.filters.length) {
+            filters.and(gApp._filterInfo.filters);
             storeConfig.models = gApp._filterInfo.types;
         }
 
         if (gApp.getSetting('hideArchived')) {
-            storeConfig.filters.push({
+            filters.and({
                 property: 'Archived',
                 operator: '=',
                 value: false
             });
         }
+
+        storeConfig.filters = filters;
 
         var store = Ext.create('Rally.data.wsapi.Store', storeConfig);
         return store.load();
