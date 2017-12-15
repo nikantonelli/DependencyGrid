@@ -366,6 +366,10 @@ var gApp;
                     }
                 });
             }
+            else {
+                var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
+                gApp._matrix[i].loaded = true;
+            }
         });
     },
 
