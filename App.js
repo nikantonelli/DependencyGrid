@@ -451,6 +451,17 @@ var gApp;
             })
 
         rows.append("text")
+            .attr("id", "infoText")
+            .attr("x", gApp._gridSize + 10)
+            .attr("y", x.bandwidth() / 2)
+            .attr("dy", ".32em")
+            .attr("text-anchor", "start")
+            .text(function(d, i) { 
+                return gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue); 
+            });
+    
+        rows.append("text")
+            .attr("id", "titleText")
             .attr("x", -10)
             .attr("y", x.bandwidth() / 2)
             .attr("dy", ".32em")
@@ -466,10 +477,8 @@ var gApp;
             .on("mouseover", gApp._textMouseOver)
             .on("mouseout", gApp._textMouseOut)
             .on("click", function(node, index, array) { gApp._nodeClick(node,index,array);})            
-            .text(function(d, i) {  
-                return gApp._nodes[i].Name; 
-            });
-        
+            .text(function(d, i) { return gApp._nodes[i].Name; });
+  
         rows.append("rect")
             .attr("x", -6)
             .attr("y",1)
@@ -477,16 +486,6 @@ var gApp;
             .attr("height", x.bandwidth() - 2)
             .attr("fill", function(d, i, a) { return c(gApp._nodes[i].group)});
 
-        rows.append("text")
-            .attr("id", "infoText")
-            .attr("x", gApp._gridSize + 10)
-            .attr("y", x.bandwidth() / 2)
-            .attr("dy", ".32em")
-            .attr("text-anchor", "start")
-            .text(function(d, i) { 
-                return gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue); 
-            });
-    
         function row(row) {
         var cell = d3.select(this).selectAll(".cell")
             .data(row.filter(function(d) { return d.z; }))
@@ -516,8 +515,8 @@ var gApp;
 
         }
         function mouseover(p) {
-            d3.selectAll(".row text").classed("active", function(d, i) { return i === p.y; });
-            d3.selectAll(".column text").classed("active", function(d, i) { return i === p.x; });
+            d3.selectAll(".row #titleText").classed("active", function(d, i) { return i === p.y; });
+            d3.selectAll(".column #titleText").classed("active", function(d, i) { return i === p.x; });
         }
     
         function mouseout() {

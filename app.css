@@ -27,6 +27,7 @@
 }
 
 .normalText {
+  font-weight: normal;
   font-size: 12px;
   font-family: "NotoSansBold,Helvetica,Arial";
 }
@@ -38,8 +39,10 @@
   font-family: "NotoSansBold,Helvetica,Arial";
 }
 
-.hyperlinkText.active {
-  fill: #ee0000;
+.hyperlinkText.textBlink {
+  animation: textBlink 1s step-start 0s infinite;
+  -webkit-animation: textBlink 1s step-start 0s infinite;
+
 }
 
 .RAID-Blue {
