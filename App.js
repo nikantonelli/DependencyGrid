@@ -12,6 +12,13 @@ var gApp;
             onlyDependencies: true
         }
     },
+
+    colourMap: [  
+        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f",
+        "#722c3a", "#00004e", "#414527", "#047f8f", "#7f4e2e", "#024b9f", "#4c2198", "#03321c", "#262628", "#437f44", "#33143c", "#001292",
+        "#22c3a7", "#20009c", "#828a4e", "#08ef1e", "#fe9a5c", "#04975e", "#984550", "#0ee458", "#4c4c50", "#8fd888", "#ee28f8", "#002584"
+    ],
+
     getSettingsFields: function() {
         var returned = [        
             {
@@ -195,7 +202,7 @@ var gApp;
                 .attr("y", gApp._gridMargin.top/4)
                 .attr("dy", ".32em")
                 .attr("text-anchor", "start")
-                .text(function() { return gApp.down('#piType').rawValue + "(s) selected";});
+                .text(function() { return gApp._nodes.length + ' ' + gApp.down('#piType').rawValue + (gApp._nodes.length != 1 ? 's' : '') + " selected";});
 
     },
 
@@ -328,14 +335,15 @@ var gApp;
             gApp._matrix[i].index = i;
         });
 
-        //Dependending on gourping, we need to adapt the colouring. Let these slide out to globals
+        //Dependending on grouping, we need to adapt the colouring. Let these slide out to globals
         x = d3.scaleBand().range([0, gApp._gridSize]);  //Scale everything to the grid
-        z = d3.scaleLinear().domain([0, 5]).clamp(true);    //Allow for degrees of opacity on number of dependencies
+        z = d3.scaleLinear().domain([0, 1]).clamp(true);    //Allow for degrees of opacity on number of dependencies
 
         if (gApp.down('#grouping').rawValue === 'RAGStatus'){
             c = d3.scaleOrdinal( ['#ff005c', '#f3ca5e', '#b3ee01', '#145FAC'])
         } else {
-            c = d3.scaleOrdinal(d3.schemeCategory20).domain(d3.range(n));
+//            c = d3.scaleOrdinal(d3.schemeCategory20).domain(d3.range(n));
+            c = d3.scaleOrdinal(gApp.colourMap).domain([0, gApp.colourMap.length]);
         }
 
         //Get grid ready for drawing
@@ -361,7 +369,7 @@ var gApp;
                                     gApp._matrix[i].error = 1;
                                 } else {
                                     gApp._matrix[i][j].count = gApp._matrix[i][j].count ? gApp._matrix[i][j].count += 1 : 1;
-                                    gApp._matrix[i][j].z += record.get(gApp.SIZEFIELD) || 0;
+                                    gApp._matrix[i][j].z += record.get(gApp.SIZEFIELD) || 1;    //If not set, clamp to the 'max'
                                 }
 
                             })    
