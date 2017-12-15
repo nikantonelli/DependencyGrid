@@ -1249,7 +1249,10 @@ console.log('Rows: ',rows)
 
         console.log('Fetching using filters: ', filters);        
 
-        storeConfig.filters = Rally.data.wsapi.Filter.fromQueryString( filters );
+        if (filters.length > 0) {
+            storeConfig.filters = Rally.data.wsapi.Filter.fromQueryString( filters );
+        }
+        
         var store = Ext.create('Rally.data.wsapi.Store', storeConfig);
         return store.load();
     },
