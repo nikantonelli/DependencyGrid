@@ -9,7 +9,7 @@ var gApp;
         defaultSettings: {
             showFilter: true,
             hideArchived: true,
-            onlyDependencies: false
+            onlyDependencies: true
         }
     },
     getSettingsFields: function() {
