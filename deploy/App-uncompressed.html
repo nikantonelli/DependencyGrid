@@ -18,7 +18,7 @@
         defaultSettings: {
             showFilter: true,
             hideArchived: true,
-            onlyDependencies: true
+            onlyDependencies: false
         }
     },
     getSettingsFields: function() {
@@ -350,17 +350,21 @@
         //Get grid ready for drawing
         gApp._setUpGrid(n);
 
+        var deferred = [];
+
         //Now for each node, add a value to the matrix for the dependency
         gApp._nodes.forEach(function(node){
             if (node.record && node.record.data.Predecessors && node.record.data.Predecessors.Count){
                 //Now we need to find the Predecessor details and dynamically fill in the matix
-                node.record.getCollection('Predecessors').load({
+                var cnf = Ext.clone(
+                {
                     fetch: true,
                     callback: function (records, operation, success) {
                         if (success) {
-                            //For each record, find the matrix element and update
-                            var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
-                            _.each(records, function(record) {
+                            console.log ( 'Found records: ', arguments, this);
+                            _.each(records, function(record){
+
+                                var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
                                 var j = gApp._findNodeIndexByRef(gApp._nodes, record.data._ref);
                                 if ( j < 0 ) {  // Record is outside those selected
                                     gApp._matrix[i].error = 1;
@@ -368,18 +372,26 @@
                                     gApp._matrix[i][j].count = gApp._matrix[i][j].count ? gApp._matrix[i][j].count += 1 : 1;
                                     gApp._matrix[i][j].z += record.get(gApp.SIZEFIELD) || 0;
                                 }
-                            });
-                            gApp._matrix[i].loaded = true;
-                            gApp._refreshGrid();
+
+                            })    
                         }
                     }
                 });
-            }
-            else {
-                var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
-                gApp._matrix[i].loaded = true;
+                deferred.push(node.record.getCollection('Predecessors').load(cnf));
             }
         });
+
+        if (deferred.length > 0) {
+            Deft.Promise.all(deferred, gApp).then({
+                success: function(responses) {
+                    gApp._refreshGrid();
+                }
+            })
+        }
+        else {
+            gApp._refreshGrid();
+        }
+
     },
 
     _grouping: {
@@ -463,7 +475,7 @@
         // }
 
         var rows = svg.selectAll(".row")
-        .data(gApp._matrix.filter(function(d) { return d.loaded === true; }))
+        .data(gApp._matrix)
             .enter().append("g")
             .attr("class", "row")
             .attr("transform", function(d, i) { return "translate(0," + x(d.index) + ")"; })
