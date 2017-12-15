@@ -42,7 +42,10 @@
 .hyperlinkText.textBlink {
   animation: textBlink 1s step-start 0s infinite;
   -webkit-animation: textBlink 1s step-start 0s infinite;
+}
 
+hyperlinkText.active {
+  fill: #ee0000;
 }
 
 .RAID-Blue {
