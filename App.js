@@ -51,6 +51,14 @@ var gApp;
     RAIDprobabilityField: 'c_RISKProbabilityLevel',
     RAIDstatusField: 'c_RAIDRequestStatus',   
 
+    _RAIDTypeMap: [
+        {
+            _refObjectName: 'RISK',      //Fixed internal string for this entity
+            Name: 'Risk',                //Displayed to user
+            data: { _refObjectName: 'Risk' } // Data area for any specifics for this code
+        },
+
+    ],
     //After caluclating the RAGStatus, it will be one of these entries
     _RAGStatusMap: [
         {
@@ -235,26 +243,7 @@ var gApp;
                 .text(function(d, i) { return gApp._nodes[i].Name; });
             
             //Add colour legend to end of grid
-            var colourLegend = gApp._svg.append('g')
-                .attr("transform", function(d, i) { 
-                    return "translate(0," + gApp._gridSize + ")";
-                })
-                .selectAll('.legend')
-                .data(gApp._grouping[gApp.down('#grouping').rawValue]())
-                .enter().append('g')
-                .attr("class", 'legend')
-                .attr("transform", function(d,i) { return "translate(0," + (x.bandwidth() * (i+1)) + ")";})
-
-            d3.selectAll('.legend').append("circle")
-                .attr('r', x.bandwidth()/4)
-                .attr("fill", function(d,i) { return c(i);});
-
-            d3.selectAll('.legend').append("text")
-                .attr("x", x.bandwidth()/4 + 20)
-                .attr("text-anchor", "start")
-                .text( function(d,i,a) {
-                    var record =   gApp._grouping[gApp.down('#grouping').rawValue]()[i]
-                    return record ? record._refObjectName: "! NOT SET !";});
+            gApp._addColourLegend();
         }    
         else { 
             gApp._showNoDependencies();
@@ -262,6 +251,29 @@ var gApp;
         
         
     },
+    _addColourLegend: function() {
+        var colourLegend = gApp._svg.append('g')
+            .attr("transform", function(d, i) { 
+                return "translate(0," + gApp._gridSize + ")";
+            })
+            .selectAll('.legend')
+            .data(gApp._grouping[gApp.down('#grouping').rawValue]())
+            .enter().append('g')
+            .attr("class", 'legend')
+            .attr("transform", function(d,i) { return "translate(0," + (x.bandwidth() * (i+1)) + ")";})
+
+        d3.selectAll('.legend').append("circle")
+            .attr('r', x.bandwidth()/4)
+            .attr("fill", function(d,i) { return c(i);});
+
+        d3.selectAll('.legend').append("text")
+            .attr("x", x.bandwidth()/4 + 20)
+            .attr("text-anchor", "start")
+            .text( function(d,i,a) {
+                var record =   gApp._grouping[gApp.down('#grouping').rawValue]()[i]
+                return record ? record._refObjectName: "! NOT SET !";});
+    },
+
     _nodeTree: null,
     
     _destroyAxes: function() {
@@ -313,6 +325,7 @@ var gApp;
             node.count = 0;
             node.group = gApp._getGroupFor(node.record);
             gApp._matrix[i] = d3.range(n).map(function(j) { return {x: j, y: i, z: 0}; });
+            gApp._matrix[i].index = i;
         });
 
         //Dependending on gourping, we need to adapt the colouring. Let these slide out to globals
@@ -337,8 +350,8 @@ var gApp;
                     callback: function (records, operation, success) {
                         if (success) {
                             //For each record, find the matrix element and update
+                            var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
                             _.each(records, function(record) {
-                                var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
                                 var j = gApp._findNodeIndexByRef(gApp._nodes, record.data._ref);
                                 if ( j < 0 ) {  // Record is outside those selected
                                     gApp._matrix[i].error = 1;
@@ -347,6 +360,7 @@ var gApp;
                                     gApp._matrix[i][j].z += record.get(gApp.SIZEFIELD) || 0;
                                 }
                             });
+                            gApp._matrix[i].loaded = true;
                             gApp._refreshGrid();
                         }
                     }
@@ -425,21 +439,24 @@ var gApp;
 
     _refreshGrid: function() {
     
-        var grid = d3.select("grid");
-        if (grid) { grid.remove(); }
-
         //Get the current viewBox
         var svg = gApp._svg;
         var width = svg.attr('width');
         var height = svg.attr('height');
 
+        // var grid = d3.select("grid");
+        // if (grid) { 
+        //     grid.remove(); 
+        // }
+
         var rows = svg.selectAll(".row")
-            .data(gApp._matrix)
+        .data(gApp._matrix.filter(function(d) { return d.loaded === true; }))
             .enter().append("g")
             .attr("class", "row")
-            .attr("transform", function(d, i) { return "translate(0," + x(i) + ")"; })
+            .attr("transform", function(d, i) { return "translate(0," + x(d.index) + ")"; })
             .each(row);
-    
+  
+console.log('Rows: ',rows)
         rows.append("line")
             .attr("x2", width)
             .on("click", function(p, i, a) { 
@@ -457,7 +474,7 @@ var gApp;
             .attr("dy", ".32em")
             .attr("text-anchor", "start")
             .text(function(d, i) { 
-                return gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue); 
+                return gApp._nodes[d.index].record.get(gApp.down('#sortOrder').rawValue); 
             });
     
         rows.append("text")
@@ -467,7 +484,7 @@ var gApp;
             .attr("dy", ".32em")
             .attr("text-anchor", "end")
             .attr("class", function(d,i) {
-                if (gApp._matrix[i].error ) {
+                if (gApp._matrix[d.index].error ) {
                     return "hyperlinkText textBlink";
                 }
                 else {
@@ -477,18 +494,19 @@ var gApp;
             .on("mouseover", gApp._textMouseOver)
             .on("mouseout", gApp._textMouseOut)
             .on("click", function(node, index, array) { gApp._nodeClick(node,index,array);})            
-            .text(function(d, i) { return gApp._nodes[i].Name; });
+            .text(function(d, i) { return gApp._nodes[d.index].Name; });
   
         rows.append("rect")
             .attr("x", -6)
             .attr("y",1)
             .attr("width", 5)
             .attr("height", x.bandwidth() - 2)
-            .attr("fill", function(d, i, a) { return c(gApp._nodes[i].group)});
+            .attr("fill", function(d, i, a) { return c(gApp._nodes[d.index].group)});
 
         function row(row) {
         var cell = d3.select(this).selectAll(".cell")
-            .data(row.filter(function(d) { return d.z; }))
+        .data(row)
+    //    .data(row.filter(function(d) { return d.z; }))
             .enter().append("circle")
             .attr("class", "cell")
             .attr("cx", function(d) { return x(d.x) + (x.bandwidth()/2); })
@@ -502,21 +520,21 @@ var gApp;
         }
     
         function clickit(p, i, a) {
-            d3.selectAll(".row line").attr("stroke-width", function(d, i) { return i === p.y ? x.bandwidth() : 1; });
-            d3.selectAll(".column line").attr("stroke-width", function(d, i) { return i === p.x ? x.bandwidth() : 1; });
-            d3.selectAll(".row line").attr("y1", function(d, i) { return i === p.y ? x.bandwidth()/2 : 1; });
-            d3.selectAll(".row line").attr("y2", function(d, i) { return i === p.y ? x.bandwidth()/2 : 1; });
-            d3.selectAll(".column line").attr("y1", function(d, i) { return i === p.x ? x.bandwidth()/2 : 1; });
-            d3.selectAll(".column line").attr("y2", function(d, i) { return i === p.x ? x.bandwidth()/2 : 1; });            
-            d3.selectAll(".row line").attr("opacity", function(d, i) { return i === p.y ? 0.2 : 1; });
-            d3.selectAll(".column line").attr("opacity", function(d, i) { return i === p.x ? 0.2 : 1; });
-            d3.selectAll(".row line").classed("active", function(d, i) { return i === p.y ? true : false; });
-            d3.selectAll(".column line").classed("active", function(d, i) { return i === p.x ? true : false; });
+            d3.selectAll(".row line").attr("stroke-width", function(d, i) { return d.index === p.y ? x.bandwidth() : 1; });
+            d3.selectAll(".column line").attr("stroke-width", function(d, i) { return d.index ===p.x ? x.bandwidth() : 1; });
+            d3.selectAll(".row line").attr("y1", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 1; });
+            d3.selectAll(".row line").attr("y2", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 1; });
+            d3.selectAll(".column line").attr("y1", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 1; });
+            d3.selectAll(".column line").attr("y2", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 1; });            
+            d3.selectAll(".row line").attr("opacity", function(d, i) { return d.index ===p.y ? 0.2 : 1; });
+            d3.selectAll(".column line").attr("opacity", function(d, i) { return d.index ===p.x ? 0.2 : 1; });
+            d3.selectAll(".row line").classed("active", function(d, i) { return d.index ===p.y ? true : false; });
+            d3.selectAll(".column line").classed("active", function(d, i) { return d.index ===p.x ? true : false; });
 
         }
         function mouseover(p) {
-            d3.selectAll(".row #titleText").classed("active", function(d, i) { return i === p.y; });
-            d3.selectAll(".column #titleText").classed("active", function(d, i) { return i === p.x; });
+            d3.selectAll(".row #titleText").classed("active", function(d, i) { return d.index ===p.y; });
+            d3.selectAll(".column #titleText").classed("active", function(d, i) { return d.index ===p.x; });
         }
     
         function mouseout() {
@@ -1154,41 +1172,60 @@ var gApp;
 
 
     _loadStoreLocal: function(modelName) {
-        var filters = Ext.create('Rally.data.wsapi.Filter', { property: 'ObjectUUID', operator: '!=', value: null});    //Create a 'true' filter
-        var storeConfig =
-            {
-                model: modelName,
-                limit: 20000,
-                fetch:  gApp.STORE_FETCH_FIELD_LIST,
-                filters: [],
-                sorters: [
-                    {
-                        property: 'Rank',
-                        direction: 'ASC'
-                    }
-                ]
-            };
+        
+        var filters = '';
 
-            if ( gApp.getSetting('onlyDependencies')){
-                filters = Ext.create('Rally.data.wsapi.Filter', { property: 'Predecessors.ObjectID', operator: '!=', value: null });
-                filters = filters.or(Ext.create('Rally.data.wsapi.Filter', { property: 'Successors.ObjectID', operator: '!=', value: null }));
-            }
+        var advFilters = [];
+        var hideFilters = [];
 
-            if (gApp._filterInfo && gApp._filterInfo.filters.length) {
-            filters.and(gApp._filterInfo.filters);
-            storeConfig.models = gApp._filterInfo.types;
+        var depFilters = [];
+
+        var storeConfig = {
+            model: modelName,
+            limit: 20000,
+            fetch:  gApp.STORE_FETCH_FIELD_LIST,
+            filters: [],
+            sorters: [
+                {
+                    property: 'Rank',
+                    direction: 'ASC'
+                }
+            ]
+        };
+
+        if ( gApp.getSetting('onlyDependencies') === true){
+            filters = Rally.data.wsapi.Filter.or([
+                { property: 'Predecessors.ObjectID', operator: '!=', value: null },
+                { property: 'Successors.ObjectID', operator: '!=', value: null }
+            ]).toString();
         }
 
-        if (gApp.getSetting('hideArchived')) {
-            filters.and({
+        if (gApp._filterInfo && gApp._filterInfo.filters.length) {
+            advFilters = gApp._filterInfo.filters.toString();
+            storeConfig.models = gApp._filterInfo.types;
+            if (filters.length) {
+                filters = '(' + advFilters + ' AND ' + filters + ')';
+            } else {
+                filters = advFilters;
+            }
+        }
+
+        if (gApp.getSetting('hideArchived') === true) {
+            hideFilters = Ext.create('Rally.data.wsapi.Filter', {
                 property: 'Archived',
                 operator: '=',
                 value: false
-            });
+            }).toString();
+            if (filters.length) {
+                filters = '(' + hideFilters + ' AND ' + filters + ')';
+            } else {
+                filters = hideFilters;
+            }
         }
 
-        storeConfig.filters = filters;
+        console.log('Fetching using filters: ', filters);        
 
+        storeConfig.filters = Rally.data.wsapi.Filter.fromQueryString( filters );
         var store = Ext.create('Rally.data.wsapi.Store', storeConfig);
         return store.load();
     },
