@@ -50,6 +50,7 @@ var gApp;
     LOAD_STORE_MAX_RECORDS: 100, //Can blow up the Rally.data.wsapi.filter.Or
     WARN_STORE_MAX_RECORDS: 300, //Can be slow if you fetch too many
     NODE_CIRCLE_SIZE: 8,                //Pixel radius of dots
+    NOT_SET_STRING: '! Not Set !',
     
     _gridMargin: {top: 120, right: 400, bottom: 400, left: 120},
 
@@ -58,43 +59,6 @@ var gApp;
     RAIDseverityField: 'c_RAIDSeverityCriticality',
     RAIDprobabilityField: 'c_RISKProbabilityLevel',
     RAIDstatusField: 'c_RAIDRequestStatus',   
-
-    _RAIDTypeMap: [
-        {
-            _refObjectName: 'RISK',      //Fixed internal string for this entity
-            Name: 'Risk',                //Displayed to user
-            data: { _refObjectName: 'Risk' } // Data area for any specifics for this code
-        },
-
-    ],
-    //After caluclating the RAGStatus, it will be one of these entries
-    _RAGStatusMap: [
-        {
-            _refObjectName: 'Red',      //Fixed internal string for this entity
-            Name: 'Red',                //Displayed to user
-            data: { _refObjectName: '#ff0000' } // Data area for any specifics for this code
-        },
-        {
-            _refObjectName: 'Amber',
-            Name: 'Amber',
-            data: { _refObjectName: '#ffb080' } 
-        },
-        {
-            _refObjectName: 'Green',
-            Name: 'Green',
-            data: { _refObjectName: '#00ff00' } 
-        },
-        {
-            _refObjectName: 'Blue',
-            Name: 'Blue',
-            data: { _refObjectName: '#0000ff' } 
-        },
-        {
-            _refObjectName: 'Unset',
-            Name: 'Black',
-            data: { _refObjectName: '#000000' } 
-        }
-    ],
 
     STORE_FETCH_FIELD_LIST: [
         'Blocked',
@@ -265,21 +229,21 @@ var gApp;
                 return "translate(0," + gApp._gridSize + ")";
             })
             .selectAll('.legend')
-            .data(gApp._grouping[gApp.down('#grouping').rawValue]())
+            .data(gApp.down('#grouping').value.allTypesFn())
             .enter().append('g')
             .attr("class", 'legend')
             .attr("transform", function(d,i) { return "translate(0," + (x.bandwidth() * (i+1)) + ")";})
 
         d3.selectAll('.legend').append("circle")
             .attr('r', x.bandwidth()/4)
-            .attr("fill", function(d,i) { return c(i);});
+            .attr("fill", function(d,i) { return gApp.down('#grouping').value.getColourOfIndexFn(i);});
 
         d3.selectAll('.legend').append("text")
             .attr("x", x.bandwidth()/4 + 20)
             .attr("text-anchor", "start")
             .text( function(d,i,a) {
-                var record =   gApp._grouping[gApp.down('#grouping').rawValue]()[i]
-                return record ? record._refObjectName: "! NOT SET !";});
+                return gApp.down('#grouping').value.allLabelsFn()[i];
+        });
     },
 
     _nodeTree: null,
@@ -304,11 +268,9 @@ var gApp;
     },
 
     _getGroupFor: function(record) {
-//        debugger;
-        var selectedgrouping = gApp.down('#grouping').rawValue;
-        var grouping = gApp._grouping[selectedgrouping];
-        var index = _.indexOf(grouping(), record.data[selectedgrouping]);
-        return index < 0 ? 19 : index;  //If unknown, use the last number in the schemeCategory20 colouring
+        var selectedgrouping = gApp.down('#grouping').value;
+        var grouping = selectedgrouping.getIndexFor(record);
+        return grouping;
     },
 
     //Continuation point after selectors ready/changed
@@ -328,7 +290,6 @@ var gApp;
         gApp._nodes.forEach(function(node, i) {
             var setColour = node.record.get('c_RAIDType') ? (node.record.get('c_RAIDType') === 'Risk') ?
                 gApp.RISKColour : gApp.AIDColour : function() { return "Blue"; };
-            node.record.data.RAGStatus = _.find(gApp._RAGStatusMap, { '_refObjectName' : setColour(node)}); //Insert an object for RAGStatus
             node.index = i;
             node.count = 0;
             node.group = gApp._getGroupFor(node.record);
@@ -340,12 +301,8 @@ var gApp;
         x = d3.scaleBand().range([0, gApp._gridSize]);  //Scale everything to the grid
         z = d3.scaleLinear().domain([0, 1]).clamp(true);    //Allow for degrees of opacity on number of dependencies
 
-        if (gApp.down('#grouping').rawValue === 'RAGStatus'){
-            c = d3.scaleOrdinal( ['#ff005c', '#f3ca5e', '#b3ee01', '#145FAC'])
-        } else {
 //            c = d3.scaleOrdinal(d3.schemeCategory20).domain(d3.range(n));
             c = d3.scaleOrdinal(gApp.colourMap).domain([0, gApp.colourMap.length]);
-        }
 
         //Get grid ready for drawing
         gApp._setUpGrid(n);
@@ -394,31 +351,185 @@ var gApp;
 
     },
 
-    _grouping: {
-        Parent: function() {
-            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Parent') }))
-        },
-        RAGStatus: function() {
-            return gApp._RAGStatusMap;
-//            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.data.RAGStatus }));
-        },
-        PreliminaryEstimate: function() {
-            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('PreliminaryEstimate') }))
-        },
-        Release: function() {
-            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Release') }))
-        },
-        State: function() {
-            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('State') }))
-        },
-        Owner: function() {
-            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Owner') }))
-        },
-        Project: function() {
-            return _.uniq( _.pluck(gApp._nodes, function(node) { return node.record.get('Project') }))
-        }
+    _createGroupings: function () {
+        if ( gApp.down('#piType').getRecord().get('Ordinal') === 0 ){
+            gApp._groupings.push( 
+            {
+                groupTitle: 'Release',
+                groupFunctions: {
+                    allLabelsFn: function() {
+                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')? node.record.get('Release').Name : gApp.NOT_SET_STRING}));
+                    },
+                    allTypesFn: function() {
+                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')? node.record.get('Release').Name : gApp.NOT_SET_STRING}));
+                    },
+                    
+                    allColoursFn: function() {
+                        return gApp.colourMap;
+                    },
+                    getColourOfIndexFn: function(index) {
+                        return gApp.colourMap[index];
+                    },
+                    getNameOfIndexFn: function(index) {
+                        return gApp.NOT_SET_STRING;
+                    },
+                    getTypeOfIndexFn: function(index) {
+                        return gApp._nodes[index].record.get('Release').Name;
+                    },
+                    getIndexFor: function(record) {
+                        return gApp._findNodeIndexByRef(record.get('_ref'));
+                    }
+                }
         
+            });
+        }
     },
+
+    _groupings: [
+        {
+            groupTitle: 'Parent',
+            groupFunctions: {
+                allLabelsFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent').Name }));
+                },
+                allTypesFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent').ObjectID }));
+                },
+                
+                allColoursFn: function() {
+                    return gApp.colourMap;
+                },
+                getColourOfIndexFn: function(index) {
+                    return gApp.colourMap[index];
+                },
+                getNameOfIndexFn: function(index) {
+                    return gApp.NOT_SET_STRING;
+                },
+                getTypeOfIndexFn: function(index) {
+                    return gApp._nodes[index].record.get('Parent').ObjectID;
+                },
+                getIndexFor: function(record) {
+                    return gApp._findNodeIndexByRef(record.get('_ref'));
+                }
+            }
+
+        },
+        {
+            groupTitle: 'State',
+            groupFunctions: {
+                allLabelsFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING}));
+                },
+                allTypesFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State')?node.record.get('State').Name : 'Null'}));
+                },
+                
+                allColoursFn: function() {
+                    return gApp.colourMap;
+                },
+                getColourOfIndexFn: function(index) {
+                    return gApp.colourMap[index];
+                },
+                getNameOfIndexFn: function(index) {
+                    return gApp.NOT_SET_STRING;
+                },
+                getTypeOfIndexFn: function(index) {
+                    return gApp._nodes[index].record.get('State').Name;
+                },
+                getIndexFor: function(record) {
+                    return gApp._findNodeIndexByRef(record.get('_ref'));
+                }
+            }
+    
+        },        
+        
+        {
+            groupTitle: '% Done By Story Plan Estimate',
+            groupFunctions: {
+                allLabelsFn: function() {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })
+                },
+                allTypesFn: function() {
+                    return Object.keys(Rally.util.HealthColorCalculator.colors);
+                },
+                
+                allColoursFn: function() {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.hex })
+                },
+                getColourOfIndexFn: function(index) {
+                    return Object.values(Rally.util.HealthColorCalculator.colors)[index].hex;
+                },
+                getNameOfIndexFn: function(index) {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })[index] 
+                },
+                getTypeOfIndexFn: function(index) {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n })[index] 
+                },
+                getIndexFor: function(record) {
+                    //return Object.keys(Rally.util.HealthColorCalculator.calculateHealthColorForPortfolioItemData(record,'PercentDOneByStoryCount'));
+                    return Object.values(Rally.util.HealthColorCalculator.colors).indexOf(
+                        Rally.util.HealthColorCalculator.calculateHealthColorForPortfolioItemData(record.data,'PercentDoneByStoryPlanEstimate'));
+                }
+            }
+        },
+        {
+            groupTitle: '% Done By Story Count',
+            groupFunctions: {
+                allLabelsFn: function() {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })
+                },
+                allTypesFn: function() {
+                    return Object.keys(Rally.util.HealthColorCalculator.colors);
+                },
+                
+                allColoursFn: function() {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.hex })
+                },
+                getColourOfIndexFn: function(index) {
+                    return Object.values(Rally.util.HealthColorCalculator.colors)[index].hex;
+                },
+                getNameOfIndexFn: function(index) {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })[index] 
+                },
+                getTypeOfIndexFn: function(index) {
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n })[index] 
+                },
+                getIndexFor: function(record) {
+                    //return Object.keys(Rally.util.HealthColorCalculator.calculateHealthColorForPortfolioItemData(record,'PercentDOneByStoryCount'));
+                    return Object.values(Rally.util.HealthColorCalculator.colors).indexOf(
+                        Rally.util.HealthColorCalculator.calculateHealthColorForPortfolioItemData(record.data,'PercentDoneByStoryCount'));
+                }
+            }
+        }
+
+    // {
+        //     groupTitle: 'Null Set',
+        //     groupFunctions: {
+        //         allLabelsFn: function() {
+        //             return [ gApp.NOT_SET_STRING];
+        //         },
+        //         allTypesFn: function() {
+        //             return [ gApp.NOT_SET_STRING];
+        //         },
+                
+        //         allColoursFn: function() {
+        //             return ['#000000'];
+        //         },
+        //         getColourOfIndexFn: function(index) {
+        //             return '#000000';
+        //         },
+        //         getNameOfIndexFn: function(index) {
+        //             return gApp.NOT_SET_STRING;
+        //         },
+        //         getTypeOfIndexFn: function(index) {
+        //             return gApp.NOT_SET_STRING;
+        //         },
+        //         getIndexFor: function(record) {
+        //             return 0
+        //         }
+        //     }
+        // }
+    ],
 
     _sortOrders: {
         FormattedID:   function() {
@@ -504,7 +615,7 @@ console.log('Rows: ',rows)
     
         rows.append("text")
             .attr("id", "titleText")
-            .attr("x", -10)
+            .attr("x", -12)
             .attr("y", x.bandwidth() / 2)
             .attr("dy", ".32em")
             .attr("text-anchor", "end")
@@ -522,11 +633,11 @@ console.log('Rows: ',rows)
             .text(function(d, i) { return gApp._nodes[d.index].Name; });
   
         rows.append("rect")
-            .attr("x", -6)
+            .attr("x", -10)
             .attr("y",1)
-            .attr("width", 5)
+            .attr("width", 9)
             .attr("height", x.bandwidth() - 2)
-            .attr("fill", function(d, i, a) { return c(gApp._nodes[d.index].group)});
+            .attr("fill", function(d, i, a) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[d.index].group);})
 
         function row(row) {
         var cell = d3.select(this).selectAll(".cell")
@@ -538,7 +649,7 @@ console.log('Rows: ',rows)
             .attr("cy", function(d) { return x.bandwidth()/2; })
             .attr("r", (x.bandwidth()/2) * 0.9)
             .style("fill-opacity", function(d) { return z(d.z); })
-            .style("fill", function(d) { return gApp._nodes[d.x].group === gApp._nodes[d.y].group ? c(gApp._nodes[d.y].group) : c(gApp._nodes[d.x].group); })
+            .style("fill", function(d) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[d.y].group);})
             .on("mouseover", mouseover)
             .on("mouseout", mouseout)
             .on("click", clickit);
@@ -1023,6 +1134,9 @@ console.log('Rows: ',rows)
     },
 
     _kickOff: function() {
+
+        gApp._createGroupings();
+
         var ptype = gApp.down('#piType');
         gApp._typeStore = ptype.store;
         var hdrBox = gApp.down('#headerBox');
@@ -1049,7 +1163,9 @@ console.log('Rows: ',rows)
             )
         }
 
-        var groupFuncs = Object.keys(gApp._grouping).map(function(key) { return [ gApp._grouping[key], key];});
+        var groupFuncs = _.map( gApp._groupings, function(group) {
+            return [group.groupFunctions, group.groupTitle];
+        });
 
         if ( !gApp.down('#grouping')){
             hdrBox.add(
@@ -1097,7 +1213,7 @@ console.log('Rows: ',rows)
                             ' then lay out a two dimensional grid if any of them have dependencies.</p>' +
                             '<p class="boldText">Exploring the data</p>' +
                             '<p>Circles are drawn when there is a dependency relationship. The colour of the circle is to categorise the Predecessor information. This colour can be compared to the colour band to the left which uses the same algorithm to colour for the Successor</p>' +
-                            '<p>The categorisation method can be selected via the drop-down marked as "Colour Group". Currently the RAGStatus option uses a hard-coded algorithm specific to a particular customer. This could be changed to your requirements in the source code. If you do not have the same custom fields enabled, it will not work.</p>' +
+                            '<p>The categorisation method can be selected via the drop-down marked as "Colour Group". </p>' +
                             '<p>By default, the ordering across the grid (and hence down the grid) is set to the item ID. If you select a different order, the grid will be rearranged. E.g, if you select "Name", the items will be arranged alphabetically on the title of the item</p>' +
                             '<p>Hovering over a circle will highlight the item names at the top and to the left in red. You can then go to the name and click on it to go to the data panel for that item</p>' +
                             '<p>If you click on the circle, the app will add highlight to the row and column until you click on another circle (either a different one or the same one)</p>' +
@@ -1376,6 +1492,69 @@ console.log('Rows: ',rows)
         return ((d.parent !== null) && (d.data.record.data.Parent !== null)) ?
             d.data.record.get('FormattedID') : Ext.id();
     },
+
+    // _percentDoneColour(item, fieldval) {
+    //     var startDate, endDate;
+
+    //     asOfDay = Ext.Date.now();
+    //     percentComplete = 100 * fieldval;
+        
+    //     if (item.get('ActualStartDate') != null) 
+    //       startDate = item.get('ActualStartDate');
+    //     else if (item.get('PlannedStartDate') != null)
+    //       startDate = item.get('PlannedStartDate');
+    //     else
+    //       startDate = asOfDay
+        
+    //     if (fieldval  === 1) {
+    //       if (item.get('ActualEndDate') != null)
+    //         endDate = item.get('ActualEndDate');
+    //       else if (item.get('PlannedEndDate') != null)
+    //         endDate = item.get('PlannedEndDate');
+    //       else
+    //         endDate = asOfDay
+    //     } else {
+    //       if (item.get('PlannedEndDate') != null) {
+    //         endDate = item.get('PlannedEndDate');
+    //       }
+    //       else{
+    //         endDate = asOfDay
+    //       }
+    //     }
+
+    //     acceptanceStartDelay = Ext.Date.getElapsed(endDate - startDate) * 0.2
+    //     warningDelay = Ext.Date.getElapsed(endDate - startDate) * 0.2
+    //     inProgress = percentComplete > 0
+        
+    //     if (asOfDay < startDate) {
+    //       return colors.white
+    //     }
+           
+    //     if (asOfDay >= endDate) {
+    //       if (percentComplete >= 100.0) {
+    //         return colors.gray;
+    //       }
+    //       else {
+    //         return colors.red;
+    //       }
+    //     }
+            
+    //     redXIntercept = startDay + acceptanceStartDelay + warningDelay
+    //     redSlope = 100.0 / (endDay - redXIntercept)
+    //     redYIntercept = -1.0 * redXIntercept * redSlope
+    //     redThreshold = redSlope * asOfDay + redYIntercept
+    //     if (percentComplete < redThreshold)
+    //       return colors.red;
+          
+    //     yellowXIntercept = startDay + acceptanceStartDelay
+    //     yellowSlope = 100 / (endDay - yellowXIntercept)
+    //     yellowYIntercept = -1.0 * yellowXIntercept * yellowSlope
+    //     yellowThreshold = yellowSlope * asOfDay + yellowYIntercept
+    //     if (percentComplete < yellowThreshold)
+    //       return colors.yellow;
+          
+    //     return colors.green;
+    // },
 
     launch: function() {
         //API Docs: https://help.rallydev.com/apps/2.1/doc/
