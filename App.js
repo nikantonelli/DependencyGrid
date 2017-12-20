@@ -92,6 +92,7 @@ var gApp;
         'State',
         'Successors',
         'Tags',
+        'UserName',
         'Workspace',
         //Customer specific after here. Delete as appropriate
         'c_ProjectIDOBN',
@@ -431,7 +432,6 @@ var gApp;
                 },
                 getIndexFor: function(record) {
                     return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Parent')?record.get('Parent').ObjectID:gApp.NOT_SET_STRING);
-//                    return gApp._findNodeIndexByRef(gApp._nodes, record.get('_ref'));
                 }
             }
 
@@ -463,7 +463,68 @@ var gApp;
                 },
                 getIndexFor: function(record) {
                     return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('State')?record.get('State').Name : gApp.NOT_SET_STRING);
-//                    return gApp._findNodeIndexByRef(gApp._nodes, record.get('_ref'));
+                }
+            }
+    
+        },
+        {
+            //Currently state is deduced from the values found in the nodes. Future work needed to make it fetch the
+            // full list of values (in the right order)from the server.
+
+            groupTitle: 'User',
+            groupFunctions: {
+                allLabelsFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner').UserName : gApp.NOT_SET_STRING}));
+                },
+                allTypesFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner')?node.record.get('Owner')._refObjectName : gApp.NOT_SET_STRING}));
+                },
+                
+                allColoursFn: function() {
+                    return gApp.colourMap;
+                },
+                getColourOfIndexFn: function(index) {
+                    return gApp.colourMap[index];
+                },
+                getNameOfIndexFn: function(index) {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner').UserName : gApp.NOT_SET_STRING}))[index];
+                },
+                getTypeOfIndexFn: function(index) {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner')._refObjectName : gApp.NOT_SET_STRING}))[index];
+                },
+                getIndexFor: function(record) {
+                    return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Owner')?record.get('Owner')._refObjectName : gApp.NOT_SET_STRING);
+                }
+            }
+    
+        },
+        {
+            //Currently state is deduced from the values found in the nodes. Future work needed to make it fetch the
+            // full list of values (in the right order)from the server.
+
+            groupTitle: 'Project',
+            groupFunctions: {
+                allLabelsFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Project')._refObjectName; }));
+                },
+                allTypesFn: function() {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Project')._refObjectName; }));
+                },
+                
+                allColoursFn: function() {
+                    return gApp.colourMap;
+                },
+                getColourOfIndexFn: function(index) {
+                    return gApp.colourMap[index];
+                },
+                getNameOfIndexFn: function(index) {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) {  return node.record.get('Project')._refObjectName; }))[index];
+                },
+                getTypeOfIndexFn: function(index) {
+                    return _.uniq(_.pluck(gApp._nodes, function(node) {  return node.record.get('Project')._refObjectName; }))[index];
+                },
+                getIndexFor: function(record) {
+                    return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Project').Name );
                 }
             }
     
