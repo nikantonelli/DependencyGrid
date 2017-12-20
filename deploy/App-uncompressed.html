@@ -61,7 +61,7 @@
     NODE_CIRCLE_SIZE: 8,                //Pixel radius of dots
     NOT_SET_STRING: '! Not Set !',
     
-    _gridMargin: {top: 120, right: 400, bottom: 400, left: 120},
+    _gridMargin: {top: 120, right: 400, bottom: 1000, left: 120},   //Leave a huge space at the bottom for a huge colour legend
 
     //To be able to show a RAGStatus, you must have some fields in the artefact for severiry, probability and status
     //The values of these fields must match the RISKColour and AIDColour routines in this file.
@@ -1093,9 +1093,9 @@
                 .delay(function(d, i) { return x(i) * 4; })
                 .attr("transform", function(d, i) { return "translate(0," + x(i) + ")"; })
                 .selectAll(".cell")
-                .delay(function(d) { return x(d.x) * 4; })
-                .attr("x", function(d) { return x(d.x); })      // For text and lines
-                .attr("cx", function(d) { return x(d.x) + (x.bandwidth()/2); });    //For circles
+                .delay(function(d) { return x(d.y) * 4; })
+                .attr("x", function(d) { return x(d.y); })      // For text and lines
+                .attr("cx", function(d) { return x(d.y) + (x.bandwidth()/2); });    //For circles
     
             t.selectAll(".column")
                 .delay(function(d, i) { return x(i) * 4; })
