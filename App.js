@@ -704,7 +704,6 @@ var gApp;
             var u = [];
             u.push(p);
             var svg = gApp._svg;
-            console.log(p, u);
             d3.selectAll(".row #titleText").classed("active", function(d, i) { return d.index ===p.x; });
             d3.selectAll(".column #titleText").classed("active", function(d, i) { return d.index ===p.y; });
             var hover = svg.selectAll(".hover")
@@ -717,7 +716,7 @@ var gApp;
             hover.append('rect')
                 .attr('stroke', '#202020')
                 .attr('stroke-width', 1)
-                .attr('width', 400)
+                .attr('width', 430)
                 .attr('height',110)
                 .attr("fill", '#ffffff');
             hover.append('text')
@@ -728,23 +727,23 @@ var gApp;
 
             hover.append('text')
                 .attr('x', 10)
-                .attr('y', 30)
-                .text( function(d,i,a) { return gApp._nodes[d.x].record.get('FormattedID')});
+                .attr('y', 70)
+                .text( function(d,i,a) { return 'Successor: ' + gApp._nodes[d.x].record.get('FormattedID')});
 
             hover.append('text')
-                .attr('x', 30)
-                .attr('y', 50)
-                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.x].group).slice(0,70);})
+                .attr('x', 15)
+                .attr('y', 90)
+                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.x].group).slice(0,80);})
             
             hover.append('text')
                 .attr('x', 10)
-                .attr('y', 70)
-                .text( function(d,i,a) { return gApp._nodes[d.y].record.get('FormattedID')});
+                .attr('y', 30)
+                .text( function(d,i,a) { return 'Predecessor: ' + gApp._nodes[d.y].record.get('FormattedID')});
                 
             hover.append('text')
-                .attr('x', 30)
-                .attr('y', 90)
-                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.y].group).slice(0,70);})  
+                .attr('x', 15)
+                .attr('y', 50)
+                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.y].group).slice(0,80);})  
         }
     
         function mouseout(p, i, a) {
