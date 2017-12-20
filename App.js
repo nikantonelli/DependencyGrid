@@ -114,6 +114,7 @@ var gApp;
         'PredecessorsAndSuccessors',                
         'State',
         'Milestones',
+        'Release',
         //Customer specific after here. Delete as appropriate
         'c_ProjectIDOBN',
         'c_QRWP'
@@ -215,7 +216,7 @@ var gApp;
                 .text(function(d, i) { return gApp._nodes[i].Name; });
             
             //Add colour legend to end of grid
-            gApp._addColourLegend();
+            gApp._redrawColourLegend();
         }    
         else { 
             gApp._showNoDependencies();
@@ -223,8 +224,18 @@ var gApp;
         
         
     },
+
+    //When the grouping changes, need to redraw the legend
+    _redrawColourLegend: function() {
+        var legend = d3.selectAll('#colourLegend');
+        if (legend) legend.remove();
+        gApp._addColourLegend();
+
+    },
+
     _addColourLegend: function() {
         var colourLegend = gApp._svg.append('g')
+            .attr("id", 'colourLegend')
             .attr("transform", function(d, i) { 
                 return "translate(0," + gApp._gridSize + ")";
             })
@@ -279,6 +290,17 @@ var gApp;
         gApp._drawGrid();
     },
 
+    _setNodeGroups: function() {
+        gApp._nodes.forEach(function(node, i) {
+            node.group = gApp._getGroupFor(node.record);
+        });
+    },
+
+    _recolourNodes: function() {
+        gApp._setNodeGroups();
+        gApp._colourSVGItems();
+    },
+
     _drawGrid: function(){
         gApp._matrix = [];
         var n = gApp._nodes.length;
@@ -288,14 +310,13 @@ var gApp;
         
         // Compute index per node.
         gApp._nodes.forEach(function(node, i) {
-            var setColour = node.record.get('c_RAIDType') ? (node.record.get('c_RAIDType') === 'Risk') ?
-                gApp.RISKColour : gApp.AIDColour : function() { return "Blue"; };
             node.index = i;
             node.count = 0;
-            node.group = gApp._getGroupFor(node.record);
-            gApp._matrix[i] = d3.range(n).map(function(j) { return {x: j, y: i, z: 0}; });
+            gApp._matrix[i] = d3.range(n).map(function(j) { return {x: i, y: j, z: 0}; });
             gApp._matrix[i].index = i;
         });
+
+        gApp._setNodeGroups();
 
         //Dependending on grouping, we need to adapt the colouring. Let these slide out to globals
         x = d3.scaleBand().range([0, gApp._gridSize]);  //Scale everything to the grid
@@ -377,7 +398,7 @@ var gApp;
                         return gApp._nodes[index].record.get('Release').Name;
                     },
                     getIndexFor: function(record) {
-                        return gApp._findNodeIndexByRef(record.get('_ref'));
+                        return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Release')?record.get('Release').Name : gApp.NOT_SET_STRING);
                     }
                 }
         
@@ -390,10 +411,10 @@ var gApp;
             groupTitle: 'Parent',
             groupFunctions: {
                 allLabelsFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent').Name }));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').Name: gApp.NOT_SET_STRING }));
                 },
                 allTypesFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent').ObjectID }));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').ObjectID : gApp.NOT_SET_STRING}));
                 },
                 
                 allColoursFn: function() {
@@ -409,19 +430,23 @@ var gApp;
                     return gApp._nodes[index].record.get('Parent').ObjectID;
                 },
                 getIndexFor: function(record) {
-                    return gApp._findNodeIndexByRef(record.get('_ref'));
+                    return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Parent')?record.get('Parent').ObjectID:gApp.NOT_SET_STRING);
+//                    return gApp._findNodeIndexByRef(gApp._nodes, record.get('_ref'));
                 }
             }
 
         },
         {
+            //Currently state is deduced from the values found in the nodes. Future work needed to make it fetch the
+            // full list of values (in the right order)from the server.
+
             groupTitle: 'State',
             groupFunctions: {
                 allLabelsFn: function() {
                     return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING}));
                 },
                 allTypesFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State')?node.record.get('State').Name : 'Null'}));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State')?node.record.get('State').Name : gApp.NOT_SET_STRING}));
                 },
                 
                 allColoursFn: function() {
@@ -437,7 +462,8 @@ var gApp;
                     return gApp._nodes[index].record.get('State').Name;
                 },
                 getIndexFor: function(record) {
-                    return gApp._findNodeIndexByRef(record.get('_ref'));
+                    return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('State')?record.get('State').Name : gApp.NOT_SET_STRING);
+//                    return gApp._findNodeIndexByRef(gApp._nodes, record.get('_ref'));
                 }
             }
     
@@ -573,6 +599,13 @@ var gApp;
 
     },
 
+    _colourSVGItems: function() {
+        var blocks = d3.selectAll(".row #colourBlock")
+            .attr("fill", function(d, i, a) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[i].group);})
+        var circles = d3.selectAll(".row circle")
+            .style("fill", function(d) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[d.y].group);})
+    },
+
     _refreshGrid: function() {
     
         //Get the current viewBox
@@ -592,7 +625,6 @@ var gApp;
             .attr("transform", function(d, i) { return "translate(0," + x(d.index) + ")"; })
             .each(row);
   
-console.log('Rows: ',rows)
         rows.append("line")
             .attr("x2", width)
             .on("click", function(p, i, a) { 
@@ -633,44 +665,44 @@ console.log('Rows: ',rows)
             .text(function(d, i) { return gApp._nodes[d.index].Name; });
   
         rows.append("rect")
+            .attr('id', 'colourBlock')
             .attr("x", -10)
             .attr("y",1)
             .attr("width", 9)
             .attr("height", x.bandwidth() - 2)
-            .attr("fill", function(d, i, a) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[d.index].group);})
+
+        gApp._colourSVGItems();
 
         function row(row) {
         var cell = d3.select(this).selectAll(".cell")
-        .data(row)
-    //    .data(row.filter(function(d) { return d.z; }))
+            .data(row.filter(function(d) { return d.z; }))
             .enter().append("circle")
             .attr("class", "cell")
-            .attr("cx", function(d) { return x(d.x) + (x.bandwidth()/2); })
+            .attr("cx", function(d) { return x(d.y) + (x.bandwidth()/2); })
             .attr("cy", function(d) { return x.bandwidth()/2; })
             .attr("r", (x.bandwidth()/2) * 0.9)
             .style("fill-opacity", function(d) { return z(d.z); })
-            .style("fill", function(d) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[d.y].group);})
             .on("mouseover", mouseover)
             .on("mouseout", mouseout)
             .on("click", clickit);
         }
     
         function clickit(p, i, a) {
-            d3.selectAll(".row line").attr("stroke-width", function(d, i) { return d.index === p.y ? x.bandwidth() : 1; });
-            d3.selectAll(".column line").attr("stroke-width", function(d, i) { return d.index ===p.x ? x.bandwidth() : 1; });
-            d3.selectAll(".row line").attr("y1", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 1; });
-            d3.selectAll(".row line").attr("y2", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 1; });
-            d3.selectAll(".column line").attr("y1", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 1; });
-            d3.selectAll(".column line").attr("y2", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 1; });            
-            d3.selectAll(".row line").attr("opacity", function(d, i) { return d.index ===p.y ? 0.2 : 1; });
-            d3.selectAll(".column line").attr("opacity", function(d, i) { return d.index ===p.x ? 0.2 : 1; });
-            d3.selectAll(".row line").classed("active", function(d, i) { return d.index ===p.y ? true : false; });
-            d3.selectAll(".column line").classed("active", function(d, i) { return d.index ===p.x ? true : false; });
+            d3.selectAll(".row line").attr("stroke-width", function(d, i) { return d.index === p.x ? x.bandwidth() : 1; });
+            d3.selectAll(".column line").attr("stroke-width", function(d, i) { return d.index ===p.y ? x.bandwidth() : 1; });
+            d3.selectAll(".row line").attr("y1", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 0; });
+            d3.selectAll(".row line").attr("y2", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 0; });
+            d3.selectAll(".column line").attr("y1", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 0; });
+            d3.selectAll(".column line").attr("y2", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 0; });            
+            d3.selectAll(".row line").attr("opacity", function(d, i) { return d.index ===p.x ? 0.2 : 1; });
+            d3.selectAll(".column line").attr("opacity", function(d, i) { return d.index ===p.y ? 0.2 : 1; });
+            d3.selectAll(".row line").classed("active", function(d, i) { return d.index ===p.x ? true : false; });
+            d3.selectAll(".column line").classed("active", function(d, i) { return d.index ===p.y ? true : false; });
 
         }
         function mouseover(p) {
-            d3.selectAll(".row #titleText").classed("active", function(d, i) { return d.index ===p.y; });
-            d3.selectAll(".column #titleText").classed("active", function(d, i) { return d.index ===p.x; });
+            d3.selectAll(".row #titleText").classed("active", function(d, i) { return d.index ===p.x; });
+            d3.selectAll(".column #titleText").classed("active", function(d, i) { return d.index ===p.y; });
         }
     
         function mouseout() {
@@ -1109,7 +1141,6 @@ console.log('Rows: ',rows)
     },
 
     _onFilterChange: function(inlineFilterButton) {
-        console.log('filterchange');
         gApp._filterInfo = inlineFilterButton.getTypesAndFilters();
         gApp._fireFilterPanelEvent();
     },
@@ -1181,8 +1212,10 @@ console.log('Rows: ',rows)
                     store: groupFuncs,
                     listeners: {
                         select: function(a,b,c,d,e,f) {
-                            gApp._destroyAxes();
-                            gApp._getArtifacts(ptype);                            
+//                            gApp._destroyAxes();
+                            gApp._redrawColourLegend();
+                            gApp._recolourNodes();
+//                            gApp._getArtifacts(ptype);                            
                         }
                     }
                 }
@@ -1285,7 +1318,7 @@ console.log('Rows: ',rows)
     },
 
     _getArtifacts: function(ptype) {
-    console.log('getArtifacts');
+    console.log('Getting artifacts from project: ', this.getContext().getProject()._refObjectName);
         //On re-entry remove all old stuff
         if ( gApp._nodes) {gApp._nodes = [];}
         if (gApp._nodeTree) {

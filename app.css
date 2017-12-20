@@ -133,11 +133,11 @@ hyperlinkText.active {
 }
 
  .background {
-   fill: #808080;
+   fill: #f8f8f8;
 }
   
 line {
-  stroke: #fff;
+  stroke: #885c0d;
 }
 line.active {
   stroke: #885c0d;
