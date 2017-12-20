@@ -433,10 +433,10 @@
                     return gApp.colourMap[index];
                 },
                 getNameOfIndexFn: function(index) {
-                    return gApp.NOT_SET_STRING;
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').Name: gApp.NOT_SET_STRING }))[index];
                 },
                 getTypeOfIndexFn: function(index) {
-                    return gApp._nodes[index].record.get('Parent').ObjectID;
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').ObjectID: gApp.NOT_SET_STRING }))[index];
                 },
                 getIndexFor: function(record) {
                     return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Parent')?record.get('Parent').ObjectID:gApp.NOT_SET_STRING);
@@ -465,10 +465,10 @@
                     return gApp.colourMap[index];
                 },
                 getNameOfIndexFn: function(index) {
-                    return gApp.NOT_SET_STRING;
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING}))[index];
                 },
                 getTypeOfIndexFn: function(index) {
-                    return gApp._nodes[index].record.get('State').Name;
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING}))[index];
                 },
                 getIndexFor: function(record) {
                     return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('State')?record.get('State').Name : gApp.NOT_SET_STRING);
@@ -709,13 +709,57 @@
             d3.selectAll(".column line").classed("active", function(d, i) { return d.index ===p.y ? true : false; });
 
         }
-        function mouseover(p) {
+        function mouseover(p, i, a) {
+            var u = [];
+            u.push(p);
+            var svg = gApp._svg;
+            console.log(p, u);
             d3.selectAll(".row #titleText").classed("active", function(d, i) { return d.index ===p.x; });
             d3.selectAll(".column #titleText").classed("active", function(d, i) { return d.index ===p.y; });
+            var hover = svg.selectAll(".hover")
+                .data(u)
+                .enter()
+                .append('g')
+                .attr('id', 'hoverBlock')
+                .attr("transform", function(d, i) { return "translate(" + (x(d.y) + x.bandwidth()) + "," + (x(d.y) + x.bandwidth()) + ")"; });
+                
+            hover.append('rect')
+                .attr('stroke', '#202020')
+                .attr('stroke-width', 1)
+                .attr('width', 400)
+                .attr('height',110)
+                .attr("fill", '#ffffff');
+            hover.append('text')
+                .attr('x', 100)
+                .attr('y', 10)
+                .attr('text-anchor', 'middle')
+                .text( gApp.down('#grouping').rawValue + ' info:');
+
+            hover.append('text')
+                .attr('x', 10)
+                .attr('y', 30)
+                .text( function(d,i,a) { return gApp._nodes[d.x].record.get('FormattedID')});
+
+            hover.append('text')
+                .attr('x', 30)
+                .attr('y', 50)
+                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.x].group).slice(0,70);})
+            
+            hover.append('text')
+                .attr('x', 10)
+                .attr('y', 70)
+                .text( function(d,i,a) { return gApp._nodes[d.y].record.get('FormattedID')});
+                
+            hover.append('text')
+                .attr('x', 30)
+                .attr('y', 90)
+                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.y].group).slice(0,70);})  
         }
     
-        function mouseout() {
+        function mouseout(p, i, a) {
+            var svg = gApp._svg;
             d3.selectAll("text").classed("active", false);
+            d3.selectAll("#hoverBlock").remove();
         }
     },
     
