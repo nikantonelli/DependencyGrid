@@ -712,7 +712,7 @@ var gApp;
                 .enter()
                 .append('g')
                 .attr('id', 'hoverBlock')
-                .attr("transform", function(d, i) { return "translate(" + (x(d.y) + x.bandwidth()) + "," + (x(d.y) + x.bandwidth()) + ")"; });
+                .attr("transform", function(d, i) { return "translate(" + (x(d.y) + x.bandwidth()) + "," + (x(d.x) + x.bandwidth()) + ")"; });
                 
             hover.append('rect')
                 .attr('stroke', '#202020')
