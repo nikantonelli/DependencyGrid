@@ -6,7 +6,7 @@ This app will find all the items of a particular Portfolio artefact type in your
 
 Circles are drawn when there is a dependency relationship. The colour of the circle is to categorise the Predecessor information. This colour can be compared to the colour band to the left which uses the same algorithm to colour for the Successor
 
-The categorisation method can be selected via the drop-down marked as "Colour Group". Currently the RAGStatus option uses a hard-coded algorithm specific to a particular customer. This could be changed to your requirements in the source code. If you do not have the same custom fields enabled, it will not work.
+The categorisation method can be selected via the drop-down marked as "Colour Group". The PercentDOne fields that you can show in normal grids can be used to give indication of 'Late', 'On Track', 'At Risk', etc. Be aware that if you choose a PercentDOne field where the underlying data is not being entered correctly (e.g. PercentDoneByStoryPlanEstimate used but story points not entered) you may get 'Late' indication for items you believe are complete.
 
 By default, the ordering across the grid (and hence down the grid) is set to the item ID. If you select a different order, the grid will be rearranged. E.g, if you select "Name", the items will be arranged alphabetically on the title of the item
 
