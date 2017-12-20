@@ -134,6 +134,8 @@ hyperlinkText.active {
 
  .background {
    fill: #f8f8f8;
+   stroke: #885c0d;
+   stroke-width: 1;   
 }
   
 line {
