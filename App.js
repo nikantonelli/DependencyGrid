@@ -9,16 +9,54 @@ var gApp;
         defaultSettings: {
             showFilter: true,
             hideArchived: true,
-            onlyDependencies: true
+            onlyDependencies: true,
+            colourMapSelector: 'Cartography'
         }
     },
 
-    colourMap: [  
-        "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f",
-        "#1baf8e", "#fffb33", "#7db5b8", "#f700e4", "#0163a7", "#fb68c4", "#6fbcd2", "#f9bbca", "#b3b3b3", "#79017a", "#aad78a", "#ffdade",
-        "#722c3a", "#00004e", "#414527", "#047f8f", "#7f4e2e", "#024b9f", "#4c2198", "#03321c", "#262628", "#437f44", "#33143c", "#001292",
-        "#22c3a7", "#20009c", "#828a4e", "#08ef1e", "#fe9a5c", "#04975e", "#984550", "#0ee458", "#4c4c50", "#8fd888", "#ee28f8", "#002584"
+    DEFAULT_MAP_NAME: 'Cartography',
+    cmArray: [
+        {
+            index: 0,
+            mapTitle: 'Cartography',
+            map: [  
+                "#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", "#fccde5", 
+                "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f", "#1baf8e", "#fffb33", "#7db5b8", "#f700e4", 
+                "#0163a7", "#fb68c4", "#6fbcd2", "#f9bbca", "#b3b3b3", "#79017a", "#aad78a", "#ffdade",
+                "#722c3a", "#00004e", "#414527", "#047f8f", "#7f4e2e", "#024b9f", "#4c2198", "#03321c", 
+                "#262628", "#437f44", "#33143c", "#001292", "#22c3a7", "#20009c", "#828a4e", "#08ef1e", 
+                "#fe9a5c", "#04975e", "#984550", "#0ee458", "#4c4c50", "#8fd888", "#ee28f8", "#002584"
+            ]
+        },
+
+        {
+            index: 1,
+            mapTitle: 'Shades',
+            map: [
+                '#fee0d2','#fcbba1','#fc9272','#fb6a4a','#ef3b2c','#cb181d','#a50f15','#67000d',
+                '#efedf5','#dadaeb','#bcbddc','#9e9ac8','#807dba','#6a51a3','#54278f','#3f007d',
+                '#fee6ce','#fdd0a2','#fdae6b','#fd8d3c','#f16913','#d94801','#a63603','#7f2704',
+                '#f0f0f0','#d9d9d9','#bdbdbd','#969696','#737373','#525252','#252525','#000000',
+                '#e5f5e0','#c7e9c0','#a1d99b','#74c476','#41ab5d','#238b45','#006d2c','#00441b',
+                '#deebf7','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#08519c','#08306b'
+            ]
+        },
+
+        {
+            index: 2,
+            mapTitle: 'Shuffle Shades',
+            map: [
+                "#08519c", "#807dba", "#54278f", "#fee6ce", "#dadaeb", "#f16913", "#bcbddc", "#ef3b2c", 
+                "#d94801", "#6a51a3", "#9e9ac8", "#2171b5", "#006d2c", "#fc9272", "#f0f0f0", "#7f2704", 
+                "#00441b", "#bdbdbd", "#969696", "#fd8d3c", "#9ecae1", "#efedf5", "#74c476", "#a50f15", 
+                "#c6dbef", "#3f007d", "#000000", "#238b45", "#4292c6", "#e5f5e0", "#fdd0a2", "#08306b", 
+                "#fcbba1", "#67000d", "#41ab5d", "#fb6a4a", "#525252", "#252525", "#737373", "#fdae6b", 
+                "#a63603", "#cb181d", "#c7e9c0", "#fee0d2", "#deebf7", "#a1d99b", "#d9d9d9", "#6baed6"
+            ]
+        }
     ],
+    
+    colourMap: [],
 
     getSettingsFields: function() {
         var returned = [        
@@ -39,9 +77,31 @@ var gApp;
                 fieldLabel: 'Show Only those with Dependencies',
                 name: 'onlyDependencies',
                 labelAlign: 'top'
+            },
+            {
+                xtype: 'rallycombobox',
+                margin: '10 0 5 20',
+                name: 'colourMapSelector',
+                fieldLabel: 'Colour Map :',
+                labelWidth: 100,
+                allowClear: false,
+                allowBlank: false,
+                defaultSelectionPosition: 'first',
+                store: _.map(gApp.cmArray, function(r) { return [ r, r.mapTitle ]}),
+                listeners: {
+                    select: function(a,b,c,d,e,f) {
+                        gApp._setColourMap(a.value);
+                    }
+                }
+
             }
         ];
         return returned;
+    },
+
+    _setColourMap: function(a) {
+        debugger;
+        gApp.colourMap = a.map;
     },
     itemId: 'rallyApp',
     MIN_COLUMN_WIDTH:   15,        //Looks silly on less than this
@@ -393,7 +453,7 @@ var gApp;
                         return gApp.colourMap[index];
                     },
                     getNameOfIndexFn: function(index) {
-                        return gApp.NOT_SET_STRING;
+                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')?node.record.get('Release').Name: gApp.NOT_SET_STRING }))[index];
                     },
                     getTypeOfIndexFn: function(index) {
                         return gApp._nodes[index].record.get('Release').Name;
@@ -1270,6 +1330,7 @@ var gApp;
 
     _kickOff: function() {
 
+        gApp._setColourMap(_.find( gApp.cmArray, function(d) { return d.mapTitle === (gApp.getSetting('colourMapSelector') || gApp.DEFAULT_MAP_NAME)}));
         gApp._createGroupings();
 
         var ptype = gApp.down('#piType');
