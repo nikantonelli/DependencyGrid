@@ -96,7 +96,6 @@
                 store: _.map(gApp.cmArray, function(r) { return [ r.mapTitle, r.mapTitle ]}),
                 listeners: {
                     select: function(a,b,c,d,e,f) {
-                        debugger;
                         gApp._setColourMap(_.find(gApp.cmArray, function(d) { return d.mapTitle === a.value}));
                     }
                 }
@@ -118,7 +117,7 @@
     NODE_CIRCLE_SIZE: 8,                //Pixel radius of dots
     NOT_SET_STRING: '! Not Set !',
     
-    _gridMargin: {top: 120, right: 400, bottom: 1000, left: 120},   //Leave a huge space at the bottom for a huge colour legend
+    _gridMargin: {top: 120, right: 420, bottom: 1000, left: 120},   //Leave a huge space at the bottom for a huge colour legend
 
     //To be able to show a RAGStatus, you must have some fields in the artefact for severiry, probability and status
     //The values of these fields must match the RISKColour and AIDColour routines in this file.
