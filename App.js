@@ -690,6 +690,18 @@ var gApp;
         Release:   function() {
             return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.descending(gApp._nodes[a].record.get('Release')._refObjectName, gApp._nodes[b].record.get('Release')._refObjectName); });
         },
+        Parent:   function() {
+            return d3.range(gApp._nodes.length).sort(function(a, b) { 
+                var a = gApp._nodes[a].record.get('Parent') ? gApp._nodes[a].record.get('Parent')._refObjectName : gApp.NOT_SET_STRING;
+                var b = gApp._nodes[b].record.get('Parent') ? gApp._nodes[b].record.get('Parent')._refObjectName : gApp.NOT_SET_STRING;
+                return d3.descending(a,b); });
+        },
+        State:   function() {
+            return d3.range(gApp._nodes.length).sort(function(a, b) { 
+                var a = gApp._nodes[a].record.get('State') ? gApp._nodes[a].record.get('State').OrderIndex : gApp.NOT_SET_STRING;
+                var b = gApp._nodes[b].record.get('State') ? gApp._nodes[b].record.get('State').OrderIndex : gApp.NOT_SET_STRING;
+                return d3.ascending(a,b); });
+        },
 // Parent:   
         //     function() {
         //         return d3.range(gApp._nodes.length).sort(function(a, b) { 
@@ -765,7 +777,8 @@ var gApp;
             .text(function(d, i) { 
                 var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
                 console.log(variable);
-                return (typeof variable === "object") ? variable._refObjectName : variable;
+                variable = variable ? variable: gApp.NOT_SET_STRING;
+                return (typeof variable !== "string") ? variable._refObjectName : variable;
             });
     
         rows.append("text")
@@ -1258,7 +1271,10 @@ var gApp;
             .attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
 
         grid.selectAll('#infoText').each( function (d, i, n) { 
-            this.innerHTML = gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue) 
+            var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
+            console.log(variable);
+            variable = variable ? variable: gApp.NOT_SET_STRING;
+            this.innerHTML = (typeof variable !== "string") ? variable._refObjectName : variable;
         });
     },
     
