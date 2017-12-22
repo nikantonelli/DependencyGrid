@@ -10,7 +10,7 @@ var gApp;
             showFilter: true,
             hideArchived: true,
             onlyDependencies: true,
-            colourMapSelector: 'Cartography'
+            mapSelector: 'Cartography'
         }
     },
 
@@ -81,16 +81,14 @@ var gApp;
             {
                 xtype: 'rallycombobox',
                 margin: '10 0 5 20',
-                name: 'colourMapSelector',
+                name: 'mapSelector',
                 fieldLabel: 'Colour Map :',
                 labelWidth: 100,
-                allowClear: false,
-                allowBlank: false,
-                defaultSelectionPosition: 'first',
-                store: _.map(gApp.cmArray, function(r) { return [ r, r.mapTitle ]}),
+                store: _.map(gApp.cmArray, function(r) { return [ r.mapTitle, r.mapTitle ]}),
                 listeners: {
                     select: function(a,b,c,d,e,f) {
-                        gApp._setColourMap(a.value);
+                        debugger;
+                        gApp._setColourMap(_.find(gApp.cmArray, function(d) { return d.mapTitle === a.value}));
                     }
                 }
 
@@ -100,7 +98,6 @@ var gApp;
     },
 
     _setColourMap: function(a) {
-        debugger;
         gApp.colourMap = a.map;
     },
     itemId: 'rallyApp',
@@ -1330,7 +1327,7 @@ var gApp;
 
     _kickOff: function() {
 
-        gApp._setColourMap(_.find( gApp.cmArray, function(d) { return d.mapTitle === (gApp.getSetting('colourMapSelector') || gApp.DEFAULT_MAP_NAME)}));
+        gApp._setColourMap(_.find( gApp.cmArray, function(d) { return d.mapTitle === (gApp.getSetting('mapSelector') || gApp.DEFAULT_MAP_NAME)}));
         gApp._createGroupings();
 
         var ptype = gApp.down('#piType');
