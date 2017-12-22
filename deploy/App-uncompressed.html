@@ -697,7 +697,10 @@
             return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.descending(gApp._nodes[a].record.get('PreliminaryEstimateValue'), gApp._nodes[b].record.get('PreliminaryEstimateValue')); });
         },
         Release:   function() {
-            return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.descending(gApp._nodes[a].record.get('Release')._refObjectName, gApp._nodes[b].record.get('Release')._refObjectName); });
+            return d3.range(gApp._nodes.length).sort(function(a, b) { 
+                var a = gApp._nodes[a].record.get('Release') ? gApp._nodes[a].record.get('Release')._refObjectName : gApp.NOT_SET_STRING;
+                var b = gApp._nodes[b].record.get('Release') ? gApp._nodes[b].record.get('Release')._refObjectName : gApp.NOT_SET_STRING;
+                return d3.descending(a,b); });
         },
         Parent:   function() {
             return d3.range(gApp._nodes.length).sort(function(a, b) { 
@@ -711,34 +714,22 @@
                 var b = gApp._nodes[b].record.get('State') ? gApp._nodes[b].record.get('State').OrderIndex : gApp.NOT_SET_STRING;
                 return d3.ascending(a,b); });
         },
-// Parent:   
-        //     function() {
-        //         return d3.range(gApp._nodes.length).sort(function(a, b) { 
-        //             return d3.ascending(
-        //                 gApp._nodes[a].record.get('Parent') && gApp._nodes[a].record.get('Parent')._ref, 
-        //                 gApp._nodes[b].record.get('Parent') && gApp._nodes[b].record.get('Parent')._ref
-        //             ); 
-        //         });
-        //     },
-        PlannedStartDate:   
-            function() {
-                return d3.range(gApp._nodes.length).sort(function(a, b) { 
-                    return d3.ascending(
-                        Ext.Date.format(gApp._nodes[a].record.get('PlannedStartDate'), 'U'), 
-                        Ext.Date.format(gApp._nodes[b].record.get('PlannedStartDate'), 'U')
-                    ); 
-                });
-            },
-        PlannedEndDate:   
-            function() {
-                return d3.range(gApp._nodes.length).sort(function(a, b) { 
-                    return d3.ascending(
-                        Ext.Date.format(gApp._nodes[a].record.get('PlannedEndDate'), 'U'), 
-                        Ext.Date.format(gApp._nodes[b].record.get('PlannedEndDate'), 'U')
-                    ); 
-                });
-            },
-
+        PlannedStartDate:   function() {
+            return d3.range(gApp._nodes.length).sort(function(a, b) { 
+                return d3.ascending(
+                    Ext.Date.format(gApp._nodes[a].record.get('PlannedStartDate'), 'U'), 
+                    Ext.Date.format(gApp._nodes[b].record.get('PlannedStartDate'), 'U')
+                ); 
+            });
+        },
+        PlannedEndDate:   function() {
+            return d3.range(gApp._nodes.length).sort(function(a, b) { 
+                return d3.ascending(
+                    Ext.Date.format(gApp._nodes[a].record.get('PlannedEndDate'), 'U'), 
+                    Ext.Date.format(gApp._nodes[b].record.get('PlannedEndDate'), 'U')
+                ); 
+            });
+        },
     },
 
     _colourSVGItems: function() {
@@ -785,7 +776,6 @@
             .attr("text-anchor", "start")
             .text(function(d, i) { 
                 var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
-                console.log(typeof variable, variable);
                 variable = variable ? variable: gApp.NOT_SET_STRING;
                 return variable._refObjectName ? variable._refObjectName : variable;
             });
