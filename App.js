@@ -776,9 +776,9 @@ var gApp;
             .attr("text-anchor", "start")
             .text(function(d, i) { 
                 var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
-                console.log(variable);
+                console.log(typeof variable, variable);
                 variable = variable ? variable: gApp.NOT_SET_STRING;
-                return (typeof variable !== "string") ? variable._refObjectName : variable;
+                return variable._refObjectName ? variable._refObjectName : variable;
             });
     
         rows.append("text")
