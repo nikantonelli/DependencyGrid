@@ -108,7 +108,7 @@ var gApp;
     NODE_CIRCLE_SIZE: 8,                //Pixel radius of dots
     NOT_SET_STRING: '! Not Set !',
     
-    _gridMargin: {top: 120, right: 420, bottom: 1000, left: 120},   //Leave a huge space at the bottom for a huge colour legend
+    _gridMargin: {top: 120, right: 450, bottom: 1000, left: 120},   //Leave a huge space at the bottom for a huge colour legend
 
     //To be able to show a RAGStatus, you must have some fields in the artefact for severiry, probability and status
     //The values of these fields must match the RISKColour and AIDColour routines in this file.
@@ -235,7 +235,8 @@ var gApp;
         var svg = d3.select('svg');
 
         //Start with ordered by FormattedID
-        x.domain(gApp.down('#sortOrder').value());        
+        x.domain(gApp._sortOrders[gApp.down('#sortOrder').rawValue]());
+//        x.domain(gApp.down('#sortOrder').value());        
         
         if (num > 0) {
 
@@ -684,9 +685,12 @@ var gApp;
         },
 
         PreliminaryEstimateValue:   function() {
-                    return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.descending(gApp._nodes[a].record.get('PreliminaryEstimateValue'), gApp._nodes[b].record.get('PreliminaryEstimateValue')); });
-                },
-        // Parent:   
+            return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.descending(gApp._nodes[a].record.get('PreliminaryEstimateValue'), gApp._nodes[b].record.get('PreliminaryEstimateValue')); });
+        },
+        Release:   function() {
+            return d3.range(gApp._nodes.length).sort(function(a, b) { return d3.descending(gApp._nodes[a].record.get('Release')._refObjectName, gApp._nodes[b].record.get('Release')._refObjectName); });
+        },
+// Parent:   
         //     function() {
         //         return d3.range(gApp._nodes.length).sort(function(a, b) { 
         //             return d3.ascending(
@@ -759,7 +763,9 @@ var gApp;
             .attr("dy", ".32em")
             .attr("text-anchor", "start")
             .text(function(d, i) { 
-                return gApp._nodes[d.index].record.get(gApp.down('#sortOrder').rawValue); 
+                var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
+                console.log(variable);
+                return (typeof variable === "object") ? variable._refObjectName : variable;
             });
     
         rows.append("text")
@@ -1234,28 +1240,27 @@ var gApp;
     },
 
     _reOrder: function(value) {
-            x.domain(value());
-
-            var grid = d3.select("#grid");
+        x.domain(gApp._sortOrders[gApp.down('#sortOrder').rawValue]());
+        var grid = d3.select("#grid");
         
-            var t = grid.transition().duration(2500);
+        var t = grid.transition().duration(2500);
         
-            t.selectAll(".row")
-                .delay(function(d, i) { return x(i) * 4; })
-                .attr("transform", function(d, i) { return "translate(0," + x(i) + ")"; })
-                .selectAll(".cell")
-                .delay(function(d) { return x(d.y) * 4; })
-                .attr("x", function(d) { return x(d.y); })      // For text and lines
-                .attr("cx", function(d) { return x(d.y) + (x.bandwidth()/2); });    //For circles
-    
-            t.selectAll(".column")
-                .delay(function(d, i) { return x(i) * 4; })
-                .attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
+        t.selectAll(".row")
+            .delay(function(d, i) { return x(i) * 4; })
+            .attr("transform", function(d, i) { return "translate(0," + x(i) + ")"; })
+            .selectAll(".cell")
+            .delay(function(d) { return x(d.y) * 4; })
+            .attr("x", function(d) { return x(d.y); })      // For text and lines
+            .attr("cx", function(d) { return x(d.y) + (x.bandwidth()/2); });    //For circles
 
-            grid.selectAll('#infoText').each( function (d, i, n) { 
-                this.innerHTML = gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue) 
-            });
-        },
+        t.selectAll(".column")
+            .delay(function(d, i) { return x(i) * 4; })
+            .attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
+
+        grid.selectAll('#infoText').each( function (d, i, n) { 
+            this.innerHTML = gApp._nodes[i].record.get(gApp.down('#sortOrder').rawValue) 
+        });
+    },
     
     //Entry point after creation of render box
     _onElementValid: function(rs) {
@@ -1333,7 +1338,8 @@ var gApp;
         gApp._typeStore = ptype.store;
         var hdrBox = gApp.down('#headerBox');
 
-        var sortFuncs = Object.keys(gApp._sortOrders).map(function(key) { return [ gApp._sortOrders[key], key];});
+        var sortFuncs = Object.keys(gApp._sortOrders).map(function(key) { return [ key, key];});
+//        var sortFuncs = Object.keys(gApp._sortOrders).map(function(key) { return [ gApp._sortOrders[key], key];});
         if ( !gApp.down('#sortOrder')){
             hdrBox.add(
                 {
