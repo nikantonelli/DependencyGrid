@@ -1,3 +1,5 @@
+var Highcharts;
+var gApp;
 (function () {
     var Ext = window.Ext4 || window.Ext;
 
@@ -120,7 +122,7 @@ Ext.define("Rally.apps.CFDChart", {
         if (!startDate) {
             endDate = todaysDate;
         } else {
-            if (!endDate) endDate = todaysDate;
+            if (!endDate) { endDate = todaysDate; }
         }
         return Ext.Date.format(endDate, 'Y-m-d\\TH:i:s.u\\Z');
     },
@@ -402,7 +404,7 @@ _objectFromYearFirstDate: function (dateArray) {
 
     generateChart: function() {
         var record = this.record;
-        if (!record) return; //Needs to be a record defined - error if not
+        if (!record) { return; } //Needs to be a record defined - error if not
         this._setDefaultConfigValues();
 
         Rally.data.ModelFactory.getModel({

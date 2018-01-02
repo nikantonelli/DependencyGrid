@@ -8,6 +8,7 @@
     <script type="text/javascript">
         Rally.onReady(function () {
                 var gApp;
+var d3,x,z,c;
 (function () {
     var Ext = window.Ext4 || window.Ext;
 
@@ -197,10 +198,10 @@
                 name: 'mapSelector',
                 fieldLabel: 'Colour Map :',
                 labelWidth: 100,
-                store: _.map(gApp.cmArray, function(r) { return [ r.mapTitle, r.mapTitle ]}),
+                store: _.map(gApp.cmArray, function(r) { return [ r.mapTitle, r.mapTitle ];}),
                 listeners: {
-                    select: function(a,b,c,d,e,f) {
-                        gApp._setColourMap(_.find(gApp.cmArray, function(d) { return d.mapTitle === a.value}));
+                    select: function(a) {
+                        gApp._setColourMap(_.find(gApp.cmArray, function(d) { return d.mapTitle === a.value;}));
                     }
                 }
 
@@ -211,7 +212,7 @@
 
     _setColourMap: function(a) {
         var mapstring = '[ ';
-        _.each (_.shuffle(a.map), function (a) { mapstring += "'" + a + "', "});
+        _.each (_.shuffle(a.map), function (a) { mapstring += "'" + a + "', ";});
         mapstring += '];';
         gApp.colourMap = a.map;
     },
@@ -307,7 +308,7 @@
                 tag: 'svg'
             },
             listeners: {
-                afterrender:  function() {  gApp = this.up('#rallyApp'); gApp._onElementValid(this);},
+                afterrender:  function() {  gApp = this.up('#rallyApp'); gApp._onElementValid();},
             },
             visible: false
         }
@@ -334,7 +335,7 @@
                 .attr("y", gApp._gridMargin.left/4)
                 .attr("dy", ".32em")
                 .attr("text-anchor", "end")
-                .text(function() { return gApp._nodes.length + ' ' + gApp.down('#piType').rawValue + (gApp._nodes.length != 1 ? 's' : '') + " selected";});
+                .text(function() { return gApp._nodes.length + ' ' + gApp.down('#piType').rawValue + (gApp._nodes.length !== 1 ? 's' : '') + " selected";});
     
         xAxis.append("text")
                 .attr("x", gApp._gridMargin.left)
@@ -402,22 +403,22 @@
     //When the grouping changes, need to redraw the legend
     _redrawColourLegend: function() {
         var legend = d3.selectAll('#colourLegend');
-        if (legend) legend.remove();
+        if (legend) { legend.remove();}
         gApp._addColourLegend();
 
     },
 
     _addColourLegend: function() {
-        var colourLegend = gApp._svg.append('g')
+        gApp._svg.append('g')
             .attr("id", 'colourLegend')
-            .attr("transform", function(d, i) { 
+            .attr("transform", function() { 
                 return "translate(0," + gApp._gridSize + ")";
             })
             .selectAll('.legend')
             .data(gApp.down('#grouping').value.allTypesFn())
             .enter().append('g')
             .attr("class", 'legend')
-            .attr("transform", function(d,i) { return "translate(0," + (x.bandwidth() * (i+1)) + ")";})
+            .attr("transform", function(d,i) { return "translate(0," + (x.bandwidth() * (i+1)) + ")";});
 
         d3.selectAll('.legend').append("circle")
             .attr('r', x.bandwidth()/4)
@@ -426,7 +427,7 @@
         d3.selectAll('.legend').append("text")
             .attr("x", x.bandwidth()/4 + 20)
             .attr("text-anchor", "start")
-            .text( function(d,i,a) {
+            .text( function(d,i) {
                 return gApp.down('#grouping').value.allLabelsFn()[i];
         });
     },
@@ -434,11 +435,11 @@
     _nodeTree: null,
     
     _destroyAxes: function() {
-        var svg = d3.selectAll('#titleText').remove();
+        d3.selectAll('#titleText').remove();
     },
 
     _destroyGrid: function() {
-        var svg = d3.select("#grid").remove();
+        d3.select("#grid").remove();
     },
 
     _showNoDependencies: function() {
@@ -465,7 +466,7 @@
     },
 
     _setNodeGroups: function() {
-        gApp._nodes.forEach(function(node, i) {
+        gApp._nodes.forEach(function(node) {
             node.group = gApp._getGroupFor(node.record);
         });
     },
@@ -505,12 +506,11 @@
         var deferred = [];
 
         //Now for each node, add a value to the matrix for the dependency
-        console.log('_nodes length: ', gApp._nodes.length);
         gApp._nodes.forEach(function(node){
+            var cnf;
             if (node.record && node.record.data.Predecessors && node.record.data.Predecessors.Count){
-                console.log('Getting preds for: ', node.record.data.FormattedID);
                 //Now we need to find the Predecessor details and dynamically fill in the matix
-                var cnf = Ext.clone(
+                cnf = Ext.clone(
                 {
                     fetch: true,
                     callback: function (records, operation, success) {
@@ -519,7 +519,6 @@
 
                                 var i = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
                                 var j = gApp._findNodeIndexByRef(gApp._nodes, record.data._ref);
-                                console.log( 'Succ: ', node.record.data.FormattedID, i, 'Pred: ', record.data.FormattedID, j);
                                 if ( j < 0 ) {  // Record is outside those selected
                                     gApp._matrix[i].error = 1;
                                 } else {
@@ -527,7 +526,7 @@
                                     gApp._matrix[i][j].z += record.get(gApp.SIZEFIELD) || 1;    //If not set, clamp to the 'min'
                                 }
 
-                            })    
+                            });
                         }
                     }
                 });
@@ -536,9 +535,8 @@
 
             //We need to check if there are successors and make label blink if it is somewhere else.
             if (node.record && node.record.data.Successors && node.record.data.Successors.Count){
-                console.log('Getting succs for: ', node.record.data.FormattedID);
                 //Now we need to find the Predecessor details and dynamically fill in the matix
-                var cnf = Ext.clone(
+                cnf = Ext.clone(
                 {
                     fetch: true,
                     callback: function (records, operation, success) {
@@ -547,7 +545,6 @@
 
                                 var j = gApp._findNodeIndexByRef(gApp._nodes, node.record.data._ref);
                                 var i = gApp._findNodeIndexByRef(gApp._nodes, record.data._ref);
-                                console.log( 'Pred: ', node.record.data.FormattedID, i, 'Succ: ', record.data.FormattedID, j);
                                 if ( i < 0 ) {  // Record is outside those selected
                                     gApp._matrix[j].error = 1;
                                 // } else {
@@ -555,7 +552,7 @@
                                 //     gApp._matrix[i][j].z += record.get(gApp.SIZEFIELD) || 1;    //If not set, clamp to the 'min'
                                 }
 
-                            })    
+                            });    
                         }
                     }
                 });
@@ -565,10 +562,10 @@
 
         if (deferred.length > 0) {
             Deft.Promise.all(deferred, gApp).then({
-                success: function(responses) {
+                success: function() {
                     gApp._refreshGrid();
                 }
-            })
+            });
         }
         else {
             gApp._refreshGrid();
@@ -583,10 +580,10 @@
                 groupTitle: 'Release',
                 groupFunctions: {
                     allLabelsFn: function() {
-                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')? node.record.get('Release').Name : gApp.NOT_SET_STRING}));
+                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')? node.record.get('Release').Name : gApp.NOT_SET_STRING;}));
                     },
                     allTypesFn: function() {
-                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')? node.record.get('Release').Name : gApp.NOT_SET_STRING}));
+                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')? node.record.get('Release').Name : gApp.NOT_SET_STRING;}));
                     },
                     
                     allColoursFn: function() {
@@ -596,7 +593,7 @@
                         return gApp.colourMap[index];
                     },
                     getNameOfIndexFn: function(index) {
-                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')?node.record.get('Release').Name: gApp.NOT_SET_STRING }))[index];
+                        return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Release')?node.record.get('Release').Name: gApp.NOT_SET_STRING ;}))[index];
                     },
                     getTypeOfIndexFn: function(index) {
                         return gApp._nodes[index].record.get('Release').Name;
@@ -615,10 +612,10 @@
             groupTitle: 'Parent',
             groupFunctions: {
                 allLabelsFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').Name: gApp.NOT_SET_STRING }));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').Name: gApp.NOT_SET_STRING ;}));
                 },
                 allTypesFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').ObjectID : gApp.NOT_SET_STRING}));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').ObjectID : gApp.NOT_SET_STRING;}));
                 },
                 
                 allColoursFn: function() {
@@ -628,10 +625,10 @@
                     return gApp.colourMap[index];
                 },
                 getNameOfIndexFn: function(index) {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').Name: gApp.NOT_SET_STRING }))[index];
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').Name: gApp.NOT_SET_STRING; }))[index];
                 },
                 getTypeOfIndexFn: function(index) {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').ObjectID: gApp.NOT_SET_STRING }))[index];
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Parent')?node.record.get('Parent').ObjectID: gApp.NOT_SET_STRING; }))[index];
                 },
                 getIndexFor: function(record) {
                     return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Parent')?record.get('Parent').ObjectID:gApp.NOT_SET_STRING);
@@ -646,10 +643,10 @@
             groupTitle: 'State',
             groupFunctions: {
                 allLabelsFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING}));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING;}));
                 },
                 allTypesFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State')?node.record.get('State').Name : gApp.NOT_SET_STRING}));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State')?node.record.get('State').Name : gApp.NOT_SET_STRING;}));
                 },
                 
                 allColoursFn: function() {
@@ -659,10 +656,10 @@
                     return gApp.colourMap[index];
                 },
                 getNameOfIndexFn: function(index) {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING}))[index];
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING;}))[index];
                 },
                 getTypeOfIndexFn: function(index) {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING}))[index];
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('State') ? node.record.get('State').Name : gApp.NOT_SET_STRING;}))[index];
                 },
                 getIndexFor: function(record) {
                     return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('State')?record.get('State').Name : gApp.NOT_SET_STRING);
@@ -677,10 +674,10 @@
             groupTitle: 'User',
             groupFunctions: {
                 allLabelsFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner').UserName : gApp.NOT_SET_STRING}));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner').UserName : gApp.NOT_SET_STRING;}));
                 },
                 allTypesFn: function() {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner')?node.record.get('Owner')._refObjectName : gApp.NOT_SET_STRING}));
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner')?node.record.get('Owner')._refObjectName : gApp.NOT_SET_STRING;}));
                 },
                 
                 allColoursFn: function() {
@@ -690,10 +687,10 @@
                     return gApp.colourMap[index];
                 },
                 getNameOfIndexFn: function(index) {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner').UserName : gApp.NOT_SET_STRING}))[index];
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner').UserName : gApp.NOT_SET_STRING;}))[index];
                 },
                 getTypeOfIndexFn: function(index) {
-                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner')._refObjectName : gApp.NOT_SET_STRING}))[index];
+                    return _.uniq(_.pluck(gApp._nodes, function(node) { return node.record.get('Owner') ? node.record.get('Owner')._refObjectName : gApp.NOT_SET_STRING;}))[index];
                 },
                 getIndexFor: function(record) {
                     return _.indexOf( gApp.down('#grouping').value.allTypesFn(), record.get('Owner')?record.get('Owner')._refObjectName : gApp.NOT_SET_STRING);
@@ -737,23 +734,23 @@
             groupTitle: '% Done By Story Plan Estimate',
             groupFunctions: {
                 allLabelsFn: function() {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label; });
                 },
                 allTypesFn: function() {
                     return Object.keys(Rally.util.HealthColorCalculator.colors);
                 },
                 
                 allColoursFn: function() {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.hex })
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.hex; });
                 },
                 getColourOfIndexFn: function(index) {
                     return Object.values(Rally.util.HealthColorCalculator.colors)[index].hex;
                 },
                 getNameOfIndexFn: function(index) {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })[index] 
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label; })[index] ;
                 },
                 getTypeOfIndexFn: function(index) {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n })[index] 
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n; })[index] ;
                 },
                 getIndexFor: function(record) {
                     //return Object.keys(Rally.util.HealthColorCalculator.calculateHealthColorForPortfolioItemData(record,'PercentDOneByStoryCount'));
@@ -766,23 +763,23 @@
             groupTitle: '% Done By Story Count',
             groupFunctions: {
                 allLabelsFn: function() {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label; });
                 },
                 allTypesFn: function() {
                     return Object.keys(Rally.util.HealthColorCalculator.colors);
                 },
                 
                 allColoursFn: function() {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.hex })
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.hex; });
                 },
                 getColourOfIndexFn: function(index) {
                     return Object.values(Rally.util.HealthColorCalculator.colors)[index].hex;
                 },
                 getNameOfIndexFn: function(index) {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label })[index] 
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n.label; })[index] ;
                 },
                 getTypeOfIndexFn: function(index) {
-                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n })[index] 
+                    return _.pluck(Rally.util.HealthColorCalculator.colors, function(n) { return n; })[index] ;
                 },
                 getIndexFor: function(record) {
                     //return Object.keys(Rally.util.HealthColorCalculator.calculateHealthColorForPortfolioItemData(record,'PercentDOneByStoryCount'));
@@ -835,21 +832,21 @@
         },
         Release:   function() {
             return d3.range(gApp._nodes.length).sort(function(a, b) { 
-                var a = gApp._nodes[a].record.get('Release') ? gApp._nodes[a].record.get('Release')._refObjectName : gApp.NOT_SET_STRING;
-                var b = gApp._nodes[b].record.get('Release') ? gApp._nodes[b].record.get('Release')._refObjectName : gApp.NOT_SET_STRING;
-                return d3.descending(a,b); });
+                var al = gApp._nodes[a].record.get('Release') ? gApp._nodes[a].record.get('Release')._refObjectName : gApp.NOT_SET_STRING;
+                var bl = gApp._nodes[b].record.get('Release') ? gApp._nodes[b].record.get('Release')._refObjectName : gApp.NOT_SET_STRING;
+                return d3.descending(al,bl); });
         },
         Parent:   function() {
             return d3.range(gApp._nodes.length).sort(function(a, b) { 
-                var a = gApp._nodes[a].record.get('Parent') ? gApp._nodes[a].record.get('Parent')._refObjectName : gApp.NOT_SET_STRING;
-                var b = gApp._nodes[b].record.get('Parent') ? gApp._nodes[b].record.get('Parent')._refObjectName : gApp.NOT_SET_STRING;
-                return d3.descending(a,b); });
+                var al = gApp._nodes[a].record.get('Parent') ? gApp._nodes[a].record.get('Parent')._refObjectName : gApp.NOT_SET_STRING;
+                var bl = gApp._nodes[b].record.get('Parent') ? gApp._nodes[b].record.get('Parent')._refObjectName : gApp.NOT_SET_STRING;
+                return d3.descending(al,bl); });
         },
         State:   function() {
             return d3.range(gApp._nodes.length).sort(function(a, b) { 
-                var a = gApp._nodes[a].record.get('State') ? gApp._nodes[a].record.get('State').OrderIndex : gApp.NOT_SET_STRING;
-                var b = gApp._nodes[b].record.get('State') ? gApp._nodes[b].record.get('State').OrderIndex : gApp.NOT_SET_STRING;
-                return d3.ascending(a,b); });
+                var al = gApp._nodes[a].record.get('State') ? gApp._nodes[a].record.get('State').OrderIndex : gApp.NOT_SET_STRING;
+                var bl = gApp._nodes[b].record.get('State') ? gApp._nodes[b].record.get('State').OrderIndex : gApp.NOT_SET_STRING;
+                return d3.ascending(al,bl); });
         },
         PlannedStartDate:   function() {
             return d3.range(gApp._nodes.length).sort(function(a, b) { 
@@ -870,10 +867,10 @@
     },
 
     _colourSVGItems: function() {
-        var blocks = d3.selectAll(".row #colourBlock")
-            .attr("fill", function(d, i, a) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[i].group);})
-        var circles = d3.selectAll(".row circle")
-            .style("fill", function(d) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[d.y].group);})
+        d3.selectAll(".row #colourBlock")
+            .attr("fill", function(d, i) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[i].group);});
+        d3.selectAll(".row circle")
+            .style("fill", function(d) { return gApp.down('#grouping').value.getColourOfIndexFn(gApp._nodes[d.y].group);});
     },
 
     _refreshGrid: function() {
@@ -881,29 +878,22 @@
         //Get the current viewBox
         var svg = gApp._svg;
         var width = svg.attr('width');
-        var height = svg.attr('height');
-
-        // var grid = d3.select("grid");
-        // if (grid) { 
-        //     grid.remove(); 
-        // }
-
         var rows = svg.selectAll(".row")
-        .data(gApp._matrix)
+            .data(gApp._matrix)
             .enter().append("g")
             .attr("class", "row")
-            .attr("transform", function(d, i) { return "translate(0," + x(d.index) + ")"; })
+            .attr("transform", function(d) { return "translate(0," + x(d.index) + ")"; })
             .each(row);
   
         rows.append("line")
             .attr("x2", width)
-            .on("click", function(p, i, a) { 
+            .on("click", function() { 
                 d3.selectAll("line").attr("stroke-width", 1);
                 d3.selectAll("line").attr("opacity", 1);                
                 d3.selectAll("line").classed("active", false);
-                d3.selectAll("line").attr("y1", 0)            
-                d3.selectAll("line").attr("y2", 0)            
-            })
+                d3.selectAll("line").attr("y1", 0);        
+                d3.selectAll("line").attr("y2", 0);           
+            });
 
         rows.append("text")
             .attr("id", "infoText")
@@ -911,7 +901,7 @@
             .attr("y", x.bandwidth() / 2)
             .attr("dy", ".32em")
             .attr("text-anchor", "start")
-            .text(function(d, i) { 
+            .text(function(d) { 
                 var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
                 variable = variable ? variable: gApp.NOT_SET_STRING;
                 return variable._refObjectName ? variable._refObjectName : variable;
@@ -923,7 +913,7 @@
             .attr("y", x.bandwidth() / 2)
             .attr("dy", ".32em")
             .attr("text-anchor", "end")
-            .attr("class", function(d,i) {
+            .attr("class", function(d) {
                 if (gApp._matrix[d.index].error ) {
                     return "hyperlinkText textBlink";
                 }
@@ -934,56 +924,56 @@
             .on("mouseover", gApp._textMouseOver)
             .on("mouseout", gApp._textMouseOut)
             .on("click", function(node, index, array) { gApp._nodeClick(node,index,array);})            
-            .text(function(d, i) { return gApp._nodes[d.index].Name; });
+            .text(function(d) { return gApp._nodes[d.index].Name; });
   
         rows.append("rect")
             .attr('id', 'colourBlock')
             .attr("x", -10)
             .attr("y",1)
             .attr("width", 9)
-            .attr("height", x.bandwidth() - 2)
+            .attr("height", x.bandwidth() - 2);
 
         gApp._colourSVGItems();
 
         function row(row) {
-        var cell = d3.select(this).selectAll(".cell")
-            .data(row.filter(function(d) { return d.z; }))
-            .enter().append("circle")
-            .attr("class", "cell")
-            .attr("cx", function(d) { return x(d.y) + (x.bandwidth()/2); })
-            .attr("cy", function(d) { return x.bandwidth()/2; })
-            .attr("r", (x.bandwidth()/2) * 0.9)
-            .style("fill-opacity", function(d) { return z(d.z); })
-            .on("mouseover", mouseover)
-            .on("mouseout", mouseout)
-            .on("click", clickit);
+            d3.select(this).selectAll(".cell")
+                .data(row.filter(function(d) { return d.z; }))
+                .enter().append("circle")
+                .attr("class", "cell")
+                .attr("cx", function(d) { return x(d.y) + (x.bandwidth()/2); })
+                .attr("cy", function() { return x.bandwidth()/2; })
+                .attr("r", (x.bandwidth()/2) * 0.9)
+                .style("fill-opacity", function(d) { return z(d.z); })
+                .on("mouseover", mouseover)
+                .on("mouseout", mouseout)
+                .on("click", clickit);
         }
     
-        function clickit(p, i, a) {
-            d3.selectAll(".row line").attr("stroke-width", function(d, i) { return d.index === p.x ? x.bandwidth() : 1; });
-            d3.selectAll(".column line").attr("stroke-width", function(d, i) { return d.index ===p.y ? x.bandwidth() : 1; });
-            d3.selectAll(".row line").attr("y1", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 0; });
-            d3.selectAll(".row line").attr("y2", function(d, i) { return d.index ===p.x ? x.bandwidth()/2 : 0; });
-            d3.selectAll(".column line").attr("y1", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 0; });
-            d3.selectAll(".column line").attr("y2", function(d, i) { return d.index ===p.y ? x.bandwidth()/2 : 0; });            
-            d3.selectAll(".row line").attr("opacity", function(d, i) { return d.index ===p.x ? 0.2 : 1; });
-            d3.selectAll(".column line").attr("opacity", function(d, i) { return d.index ===p.y ? 0.2 : 1; });
-            d3.selectAll(".row line").classed("active", function(d, i) { return d.index ===p.x ? true : false; });
-            d3.selectAll(".column line").classed("active", function(d, i) { return d.index ===p.y ? true : false; });
+        function clickit(p) {
+            d3.selectAll(".row line").attr("stroke-width", function(d) { return d.index === p.x ? x.bandwidth() : 1; });
+            d3.selectAll(".column line").attr("stroke-width", function(d) { return d.index ===p.y ? x.bandwidth() : 1; });
+            d3.selectAll(".row line").attr("y1", function(d) { return d.index ===p.x ? x.bandwidth()/2 : 0; });
+            d3.selectAll(".row line").attr("y2", function(d) { return d.index ===p.x ? x.bandwidth()/2 : 0; });
+            d3.selectAll(".column line").attr("y1", function(d) { return d.index ===p.y ? x.bandwidth()/2 : 0; });
+            d3.selectAll(".column line").attr("y2", function(d) { return d.index ===p.y ? x.bandwidth()/2 : 0; });            
+            d3.selectAll(".row line").attr("opacity", function(d) { return d.index ===p.x ? 0.2 : 1; });
+            d3.selectAll(".column line").attr("opacity", function(d) { return d.index ===p.y ? 0.2 : 1; });
+            d3.selectAll(".row line").classed("active", function(d) { return d.index ===p.x ? true : false; });
+            d3.selectAll(".column line").classed("active", function(d) { return d.index ===p.y ? true : false; });
 
         }
-        function mouseover(p, i, a) {
+        function mouseover(p) {
             var u = [];
             u.push(p);
             var svg = gApp._svg;
-            d3.selectAll(".row #titleText").classed("active", function(d, i) { return d.index ===p.x; });
-            d3.selectAll(".column #titleText").classed("active", function(d, i) { return d.index ===p.y; });
+            d3.selectAll(".row #titleText").classed("active", function(d) { return d.index ===p.x; });
+            d3.selectAll(".column #titleText").classed("active", function(d) { return d.index ===p.y; });
             var hover = svg.selectAll(".hover")
                 .data(u)
                 .enter()
                 .append('g')
                 .attr('id', 'hoverBlock')
-                .attr("transform", function(d, i) { return "translate(" + (x(d.y) + x.bandwidth()) + "," + (x(d.x) + x.bandwidth()) + ")"; });
+                .attr("transform", function(d) { return "translate(" + (x(d.y) + x.bandwidth()) + "," + (x(d.x) + x.bandwidth()) + ")"; });
                 
             hover.append('rect')
                 .attr('stroke', '#202020')
@@ -1000,26 +990,25 @@
             hover.append('text')
                 .attr('x', 10)
                 .attr('y', 70)
-                .text( function(d,i,a) { return 'Successor: ' + gApp._nodes[d.x].record.get('FormattedID')});
+                .text( function(d) { return 'Successor: ' + gApp._nodes[d.x].record.get('FormattedID');});
 
             hover.append('text')
                 .attr('x', 15)
                 .attr('y', 90)
-                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.x].group).slice(0,80);})
+                .text( function(d) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.x].group).slice(0,80);});
             
             hover.append('text')
                 .attr('x', 10)
                 .attr('y', 30)
-                .text( function(d,i,a) { return 'Predecessor: ' + gApp._nodes[d.y].record.get('FormattedID')});
+                .text( function(d) { return 'Predecessor: ' + gApp._nodes[d.y].record.get('FormattedID');});
                 
             hover.append('text')
                 .attr('x', 15)
                 .attr('y', 50)
-                .text( function(d,i,a) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.y].group).slice(0,80);})  
+                .text( function(d) { return gApp.down('#grouping').value.getNameOfIndexFn(gApp._nodes[d.y].group).slice(0,80);});
         }
     
-        function mouseout(p, i, a) {
-            var svg = gApp._svg;
+        function mouseout() {
             d3.selectAll("text").classed("active", false);
             d3.selectAll("#hoverBlock").remove();
         }
@@ -1027,7 +1016,7 @@
     
     _nodeClick: function (row,index,array) {
         var node = gApp._nodes[index];
-        if (!(node.record.data.ObjectID)) return; //Only exists on real items
+        if (!(node.record.data.ObjectID)) {return;} //Only exists on real items
         //Get ordinal (or something ) to indicate we are the lowest level, then use "UserStories" instead of "Children"
         if (event.shiftKey) { 
             gApp._nodePopup(node,index,array); 
@@ -1036,8 +1025,8 @@
         }
     },
 
-    _nodePopup: function(node, index, array) {
-        var popover = Ext.create('Rally.ui.popover.DependenciesPopover',
+    _nodePopup: function(node) {
+        Ext.create('Rally.ui.popover.DependenciesPopover',
             {
                 record: node.record,
                 target: node.card.el
@@ -1115,7 +1104,6 @@
                     }
                     //This is specific to customer. Features are used as RAIDs as well.
                     if ((this.record.self.ordinal === 1) && this.record.hasField('c_RAIDType')){
-                        var me = this;
                         var rai = this.down('#leftCol').add(
                             {
                                 xtype: 'rallypopoverchilditemslistview',
@@ -1142,7 +1130,7 @@
                                             text: 'RAG Status',
                                             dataIndex: 'Release',  //Just so that a sorter gets called on column ordering
                                             width: 60,
-                                            renderer: function (value, metaData, record, rowIdx, colIdx, store) {
+                                            renderer: function (value, metaData, record) {
                                                 var setColour = (record.get('c_RAIDType') === 'Risk') ?
                                                         gApp.RISKColour : gApp.AIDColour;
                                                 
@@ -1203,7 +1191,7 @@
                                         text: 'Timebox',
                                         dataIndex: 'Project',  //Just so that the renderer gets called
                                         minWidth: 80,
-                                        renderer: function (value, metaData, record, rowIdx, colIdx, store) {
+                                        renderer: function (value, metaData, record) {
                                             var retval = '';
                                                 if (record.hasField('Iteration')) {
                                                     retval = record.get('Iteration')?record.get('Iteration').Name:'NOT PLANNED';
@@ -1256,16 +1244,16 @@
                             };
                     }
                 }
-                else return {
-                    fetch: gApp.STORE_FETCH_FIELD_LIST,
-                    pageSize: 50                                                    
-                };
+                else {
+                    return {
+                        fetch: gApp.STORE_FETCH_FIELD_LIST,
+                        pageSize: 50                                                    
+                    };
+                }
             },
 
             //This is specific to customer. Features are used as RAIDs as well.
             RAIDStoreConfig: function() {
-                var retval = {};
-
                 if (this.record.hasField('c_RAIDType')){
                             return {
                                 filters: [{
@@ -1277,12 +1265,13 @@
                                 pageSize: 50
                             };
                     }
-                else return {
-                    fetch: gApp.STORE_FETCH_FIELD_LIST,
-                    pageSize: 50
-                };
+                else {
+                    return {
+                        fetch: gApp.STORE_FETCH_FIELD_LIST,
+                        pageSize: 50
+                    };
+                }
             },
-
         });
     },
 
@@ -1343,12 +1332,7 @@
         return 'Black'; //Mark as unknown
     },
 
-    _dataCheckForItem: function(d){
-        return "";
-    },
-
-    
-    _textMouseOver: function(row, index, array) {
+    _textMouseOver: function(row, index) {
         var node = gApp._nodes[index];
         if (!(node.record.data.ObjectID)) {
             //Only exists on real items, so do something for the 'unknown' item
@@ -1383,12 +1367,12 @@
         }
     },
 
-    _textMouseOut: function(row, index, array) {
+    _textMouseOut: function(row, index) {
         var node = gApp._nodes[index];
         node.card.hide();
     },
 
-    _reOrder: function(value) {
+    _reOrder: function() {
         x.domain(gApp._sortOrders[gApp.down('#sortOrder').rawValue]());
         var grid = d3.select("#grid");
         
@@ -1406,7 +1390,7 @@
             .delay(function(d, i) { return x(i) * 4; })
             .attr("transform", function(d, i) { return "translate(" + x(i) + ")rotate(-90)"; });
 
-        grid.selectAll('#infoText').each( function (d, i, n) { 
+        grid.selectAll('#infoText').each( function (d) { 
             var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
             variable = variable ? variable: gApp.NOT_SET_STRING;
             this.innerHTML = (typeof variable !== "string") ? variable._refObjectName : variable;
@@ -1414,10 +1398,10 @@
     },
     
     //Entry point after creation of render box
-    _onElementValid: function(rs) {
+    _onElementValid: function() {
         //Add any useful selectors into this container ( which is inserted before the rootSurface )
         //Choose a point when all are 'ready' to jump off into the rest of the app
-        var hdrBox = this.insert (0,{
+        this.insert (0,{
             xtype: 'container',
             itemId: 'headerBox',
             layout: 'hbox',
@@ -1475,14 +1459,14 @@
     },
 
     onSettingsUpdate: function() {
-        if ( gApp._nodes) gApp._nodes = [];
+        if ( gApp._nodes) { gApp._nodes = [];}
         gApp._destroyAxes();
         gApp._getArtifacts( gApp.down('#piType'));
     },
 
     _kickOff: function() {
 
-        gApp._setColourMap(_.find( gApp.cmArray, function(d) { return d.mapTitle === (gApp.getSetting('mapSelector') || gApp.DEFAULT_MAP_NAME)}));
+        gApp._setColourMap(_.find( gApp.cmArray, function(d) { return d.mapTitle === (gApp.getSetting('mapSelector') || gApp.DEFAULT_MAP_NAME);}));
         gApp._createGroupings();
 
         var ptype = gApp.down('#piType');
@@ -1504,12 +1488,12 @@
                     labelWidth: 100,
                     store: sortFuncs,
                     listeners: {
-                        select: function(a,b,c,d,e,f) {
-                            gApp._reOrder(a.value);
+                        select: function() {
+                            gApp._reOrder();
                         }
                     }
                 }
-            )
+            );
         }
 
         var groupFuncs = _.map( gApp._groupings, function(group) {
@@ -1529,7 +1513,7 @@
                     labelWidth: 100,
                     store: groupFuncs,
                     listeners: {
-                        select: function(a,b,c,d,e,f) {
+                        select: function() {
 //                            gApp._destroyAxes();
                             gApp._redrawColourLegend();
                             gApp._recolourNodes();
@@ -1537,7 +1521,7 @@
                         }
                     }
                 }
-            )
+            );
         }
 
         if (!gApp.down('#infoButton')){
@@ -1563,15 +1547,32 @@
                             '<p>This app will find all the items of a particular Portfolio artefact type in your chosen node,' +
                             ' then lay out a two dimensional grid if any of them have dependencies.</p>' +
                             '<p class="boldText">Exploring the data</p>' +
-                            '<p>Circles are drawn when there is a dependency relationship. The colour of the circle is to categorise the Predecessor information. This colour can be compared to the colour band to the left which uses the same algorithm to colour for the Successor</p>' +
+                            '<p>For every item you have asked for, the app will place a row on the grid. The row will contain two important places to focus on: </p>' +
+                            '<li>the circle(s) in the row ' +
+                            '<p>Circles are drawn when there is a predecessor relationship. The colour of the circle is to categorise the predecessor information. ' + 
+                            'This colour can be compared to the colour band to the left which uses the same algorithm to colour for the main item</p>' +
                             '<p>The categorisation method can be selected via the drop-down marked as "Colour Group". </p>' +
-                            '<p>By default, the ordering across the grid (and hence down the grid) is set to the item ID. If you select a different order, the grid will be rearranged. E.g, if you select "Name", the items will be arranged alphabetically on the title of the item</p>' +
+                            '<p>By default, the sorting across the grid (and hence down the grid) is set to the item ID. If you select a different sort order, the grid will be ' + 
+                            'rearranged. E.g, if you select "Name", the items will be arranged alphabetically on the title of the item. The information used for the sort order will be shown to the right of the row</p>' +
                             '<p>Hovering over a circle will highlight the item names at the top and to the left in red. You can then go to the name and click on it to go to the data panel for that item</p>' +
-                            '<p>If you click on the circle, the app will add highlight to the row and column until you click on another circle (either a different one or the same one)</p>' +
-                            '<p>The app options will allow you to minimise the number of columns and rows by only showing those with dependencies - giving a more focussed view</p>' +
+                            '<p>Hovering over the circles in the rows will also give you the information for the Predecessor and Successor based on the Grouping you have chosen in the header bar</p>' +
+                            '<p>If you click on the circle, the app will add highlight to the row and column until you click on another circle (either a different one or the same one) to aid with finding the right items in a large grid</p>' +
+                            '</li>' +
+                            '<li>the FormattedID to the left' +
+                            '<p>If the FormattedID is not blinking, then look across the row for a circle. The circle indicates the column for the predecessor. If there are no circles, ' + 
+                                'then the FormattedID you are looking at has a Successor which is part of these items</p>' +
+                            '<p>If the FormattedID is blinking, then there is one (or more) dependencies (Predecessor or Successor) that is not in these items.' + 
+                            ' Once again, Predecessors that are known about are shown as circles</p>' +
+                            '<p>Clicking on the FormattedID text will bring up the data panel showing you more info about that Portfolio Item</p>' +
+                            '<p>Shift-Click on the FormattedID will give you a pop-up with just the dependencies on</p>' +
+                            '</li>' +
+                            // '<p></p>' +
                             '<p class="boldText">Filtering</p>' +
+                            '<p>The app options will allow you to minimise the number of columns and rows by only showing those with dependencies - giving a more focussed view</p>' +
                            '<p>There are app settings to enable the extra filtering capabilities on the main page, so that you can choose which portfolio items to see' +
-                           ' e.g. filter on Owner, Investment Type, etc. </p><p>You can use the advanced filter to show you items in a particular Program Increment. If there are dependencies from Successor to a Predecessor that was not in the filtered selection, the Successors name to the left will blink slowly.</p>' +
+                           ' e.g. filter on Owner, Investment Type, etc. </p><p>You can use the advanced filter to show you items in a particular Program Increment. Remember: if there are dependencies ' + 
+                           'from Successor to a Predecessor that was not in the filtered selection, the Successors name to the left will blink slowly.This means if you have items ' + 
+                           'in your node that are not in the Release you have filtered for, you will not see them and the FormattedID may still blink</p>' +
                             '<p>Source code available here: <br/><a href=https://github.com/nikantonelli/DependencyGrid> Github Repo</a></p>',
                         padding: 10
                         }
@@ -1669,8 +1670,6 @@
 
         var advFilters = [];
         var hideFilters = [];
-
-        var depFilters = [];
 
         var storeConfig = {
             model: modelName,
@@ -1778,12 +1777,11 @@
     },
 
     _findNodeIndexByRef: function(nodes, ref) {
-        var retval = -1;
-        retval = _.findIndex(nodes, function(node) {
+        var retval = _.findIndex(nodes, function(node) {
             return ((node.record && node.record.data._ref) === ref);
         });
         console.log ( 'ref ', ref, 'retval ', retval);
-        return retval
+        return retval;
     },
 
     _findNodeById: function(nodes, id) {
@@ -1915,7 +1913,9 @@
     },
 });
 }());
-                (function () {
+                var Highcharts;
+var gApp;
+(function () {
     var Ext = window.Ext4 || window.Ext;
 
 Ext.define("Rally.apps.CFDChart", {
@@ -2037,7 +2037,7 @@ Ext.define("Rally.apps.CFDChart", {
         if (!startDate) {
             endDate = todaysDate;
         } else {
-            if (!endDate) endDate = todaysDate;
+            if (!endDate) { endDate = todaysDate; }
         }
         return Ext.Date.format(endDate, 'Y-m-d\\TH:i:s.u\\Z');
     },
@@ -2319,7 +2319,7 @@ _objectFromYearFirstDate: function (dateArray) {
 
     generateChart: function() {
         var record = this.record;
-        if (!record) return; //Needs to be a record defined - error if not
+        if (!record) { return; } //Needs to be a record defined - error if not
         this._setDefaultConfigValues();
 
         Rally.data.ModelFactory.getModel({
