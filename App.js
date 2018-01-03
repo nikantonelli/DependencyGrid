@@ -1,5 +1,3 @@
-var gApp;
-var d3,x,z,c;
 (function () {
     var Ext = window.Ext4 || window.Ext;
 
@@ -1384,7 +1382,7 @@ var d3,x,z,c;
         grid.selectAll('#infoText').each( function (d) { 
             var variable = gApp._nodes[d.index].record.get(gApp.down('#sortOrder').value);
             variable = variable ? variable: gApp.NOT_SET_STRING;
-            this.innerHTML = (typeof variable !== "string") ? variable._refObjectName : variable;
+            this.innerHTML = variable._refObjectName ? variable._refObjectName : variable;
         });
     },
     
@@ -1771,7 +1769,6 @@ var d3,x,z,c;
         var retval = _.findIndex(nodes, function(node) {
             return ((node.record && node.record.data._ref) === ref);
         });
-        console.log ( 'ref ', ref, 'retval ', retval);
         return retval;
     },
 
@@ -1836,71 +1833,7 @@ var d3,x,z,c;
             d.data.record.get('FormattedID') : Ext.id();
     },
 
-    // _percentDoneColour(item, fieldval) {
-    //     var startDate, endDate;
-
-    //     asOfDay = Ext.Date.now();
-    //     percentComplete = 100 * fieldval;
-        
-    //     if (item.get('ActualStartDate') != null) 
-    //       startDate = item.get('ActualStartDate');
-    //     else if (item.get('PlannedStartDate') != null)
-    //       startDate = item.get('PlannedStartDate');
-    //     else
-    //       startDate = asOfDay
-        
-    //     if (fieldval  === 1) {
-    //       if (item.get('ActualEndDate') != null)
-    //         endDate = item.get('ActualEndDate');
-    //       else if (item.get('PlannedEndDate') != null)
-    //         endDate = item.get('PlannedEndDate');
-    //       else
-    //         endDate = asOfDay
-    //     } else {
-    //       if (item.get('PlannedEndDate') != null) {
-    //         endDate = item.get('PlannedEndDate');
-    //       }
-    //       else{
-    //         endDate = asOfDay
-    //       }
-    //     }
-
-    //     acceptanceStartDelay = Ext.Date.getElapsed(endDate - startDate) * 0.2
-    //     warningDelay = Ext.Date.getElapsed(endDate - startDate) * 0.2
-    //     inProgress = percentComplete > 0
-        
-    //     if (asOfDay < startDate) {
-    //       return colors.white
-    //     }
-           
-    //     if (asOfDay >= endDate) {
-    //       if (percentComplete >= 100.0) {
-    //         return colors.gray;
-    //       }
-    //       else {
-    //         return colors.red;
-    //       }
-    //     }
-            
-    //     redXIntercept = startDay + acceptanceStartDelay + warningDelay
-    //     redSlope = 100.0 / (endDay - redXIntercept)
-    //     redYIntercept = -1.0 * redXIntercept * redSlope
-    //     redThreshold = redSlope * asOfDay + redYIntercept
-    //     if (percentComplete < redThreshold)
-    //       return colors.red;
-          
-    //     yellowXIntercept = startDay + acceptanceStartDelay
-    //     yellowSlope = 100 / (endDay - yellowXIntercept)
-    //     yellowYIntercept = -1.0 * yellowXIntercept * yellowSlope
-    //     yellowThreshold = yellowSlope * asOfDay + yellowYIntercept
-    //     if (percentComplete < yellowThreshold)
-    //       return colors.yellow;
-          
-    //     return colors.green;
-    // },
-
     launch: function() {
-        //API Docs: https://help.rallydev.com/apps/2.1/doc/
     },
 });
 }());

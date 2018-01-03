@@ -1,5 +1,4 @@
-var Highcharts;
-var gApp;
+
 (function () {
     var Ext = window.Ext4 || window.Ext;
 
