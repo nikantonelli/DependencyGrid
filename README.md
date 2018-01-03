@@ -38,5 +38,4 @@ There are app settings to enable the extra filtering capabilities on the main pa
 
 You can use the advanced filter to show you items in a particular Program Increment. Remember: if there are dependencies from Successor to a Predecessor that was not in the filtered selection, the Successors name to the left will blink slowly.This means if you have items in your node that are not in the Release you have filtered for, you will not see them and the FormattedID may still blink
 
-Source code available here: 
-Github Repo
+![alt text](https://github.com/nikantonelli/DependencyGrid/blob/master/Images/Untitled.png)
